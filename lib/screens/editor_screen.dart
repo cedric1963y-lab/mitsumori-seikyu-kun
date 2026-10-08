@@ -280,7 +280,7 @@ class _EditorScreenState extends State<EditorScreen> {
                 Expanded(
                   child: _DateBox(
                     label: '発行日',
-                    value: formatJapaneseDate(_doc.issued),
+                    value: formatDate(_doc.issued),
                     onTap: () => _pickDate(due: false),
                   ),
                 ),
@@ -288,7 +288,7 @@ class _EditorScreenState extends State<EditorScreen> {
                 Expanded(
                   child: _DateBox(
                     label: kind.dueLabel,
-                    value: due == null ? '未設定' : formatJapaneseDate(due),
+                    value: due == null ? '未設定' : formatDate(due),
                     onTap: () => _pickDate(due: true),
                     onClear: due == null
                         ? null

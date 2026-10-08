@@ -10,6 +10,11 @@ mkdir -p "$OUT"
 xcrun simctl list devices booted | grep -q Booted || { echo "boot a simulator first" >&2; exit 1; }
 xcrun simctl status_bar booted override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 || true
 
+# Close other apps so the status bar shows no "back to app" breadcrumb.
+for app in $(xcrun simctl spawn booted launchctl list | sed -nE 's/.*UIKitApplication:([^[]+)\[.*/\1/p' | grep -v '^com\.apple\.' | sort -u); do
+  xcrun simctl terminate booted "$app" 2>/dev/null || true
+done
+
 shot() { # name premium tab doc
   local name=$1 premium=$2 tab=$3 doc=${4:-}
   flutter build ios --simulator --debug --dart-define=SCREENSHOT=true \

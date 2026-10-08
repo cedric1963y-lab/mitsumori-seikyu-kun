@@ -141,7 +141,21 @@ class _DocumentScreenState extends State<DocumentScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${doc.kind.label} ${doc.number}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(doc.kind.label),
+            Text(
+              doc.number,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFC9D2D8),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             key: const Key('edit-document'),
