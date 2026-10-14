@@ -119,12 +119,12 @@ month = today.strftime("%Y-%m")
 write("settings.json", {
     "version": 1,
     "profile": {
-        "name": "鈴木内装",
+        "name": "山田内装",
         "postalCode": "222-0033",
         "address": "神奈川県横浜市港北区新横浜2-5-10",
         "phone": "090-1234-5678",
         "email": "",
-        "bank": "港北信用金庫 新横浜支店\n普通 1234567 スズキ ハヤト",
+        "bank": "港北信用金庫 新横浜支店\n普通 1234567 ヤマダ タロウ",
         "registrationNumber": "T1234567890123",
     },
     "counters": {f"Q-{today.year}": 24, f"INV-{today.year}": 18},

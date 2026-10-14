@@ -107,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             controller: _name,
             decoration: const InputDecoration(
               labelText: '屋号または氏名（必須）',
-              hintText: '例: 鈴木内装 / 鈴木 隼人',
+              hintText: '例: 山田内装 / 山田 太郎',
             ),
           ),
           const SizedBox(height: 10),
@@ -146,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             maxLines: 3,
             decoration: const InputDecoration(
               labelText: '振込先（請求書に印字）',
-              hintText: '例: ○○銀行 港北支店 普通 1234567 スズキ ハヤト',
+              hintText: '例: ○○銀行 港北支店 普通 1234567 ヤマダ タロウ',
               alignLabelWithHint: true,
             ),
           ),

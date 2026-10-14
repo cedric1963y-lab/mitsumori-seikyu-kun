@@ -255,7 +255,7 @@ void main() {
     final c = await openController(directory);
     expect(
       () => c.saveProfile(
-        const BusinessProfile(name: '鈴木内装', registrationNumber: 'T123'),
+        const BusinessProfile(name: '山田内装', registrationNumber: 'T123'),
       ),
       throwsA(isA<InvalidInput>()),
     );
@@ -265,13 +265,13 @@ void main() {
     );
     await c.saveProfile(
       const BusinessProfile(
-        name: ' 鈴木内装 ',
+        name: ' 山田内装 ',
         address: '横浜市港北区\n\n',
         bank: '○○銀行 港北支店\n普通 1234567',
         registrationNumber: 'ｔ１２３４５６７８９０１２３',
       ),
     );
-    expect(c.profile.name, '鈴木内装');
+    expect(c.profile.name, '山田内装');
     expect(c.profile.address, '横浜市港北区');
     expect(c.profile.registrationNumber, 'T1234567890123');
     final reopened = await openController(directory);
@@ -294,7 +294,7 @@ void main() {
     final c = await openController(directory);
     await c.saveProfile(
       const BusinessProfile(
-        name: '鈴木内装',
+        name: '山田内装',
         bank: '○○銀行',
         registrationNumber: 'T1234567890123',
       ),
