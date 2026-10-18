@@ -1,5 +1,6 @@
 import Flutter
 import PhotosUI
+import StoreKit
 import UIKit
 
 @main
@@ -15,6 +16,45 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SealPicker") {
       SealPicker.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ReviewAsk") {
+      ReviewAsk.register(with: registrar)
+    }
+  }
+}
+
+/// Apple's rating dialog after the third PDF share, once per app version.
+enum ReviewAsk {
+  private static let sharesKey = "mitsumori.review.pdfShares"
+  private static let versionKey = "mitsumori.review.askedVersion"
+  private static let sharesBeforeAsking = 3
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = FlutterMethodChannel(
+      name: "jp.mitsumori.app/review_ask",
+      binaryMessenger: registrar.messenger()
+    )
+    channel.setMethodCallHandler { call, result in
+      if call.method == "pdfShared" {
+        pdfShared()
+        result(nil)
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func pdfShared() {
+    let defaults = UserDefaults.standard
+    let shares = defaults.integer(forKey: sharesKey) + 1
+    defaults.set(shares, forKey: sharesKey)
+    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    guard shares >= sharesBeforeAsking, defaults.string(forKey: versionKey) != version else { return }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+      let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+      guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) else { return }
+      defaults.set(version, forKey: versionKey)
+      SKStoreReviewController.requestReview(in: scene)
     }
   }
 }

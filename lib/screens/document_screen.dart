@@ -8,6 +8,7 @@ import '../app_scope.dart';
 import '../format.dart';
 import '../models/models.dart';
 import '../plan/limits.dart';
+import '../services/review_ask.dart';
 import '../services/share_service.dart';
 import '../state/app_controller.dart';
 import '../theme.dart';
@@ -67,6 +68,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
       );
     });
     if (!ok || !mounted) return;
+    const ReviewAsk().pdfShared();
     final current = controller.documentById(doc.id);
     if (current != null && current.status == DocStatus.unsent) {
       showSnack(
