@@ -8,6 +8,7 @@ import 'package:mitsumori_seikyu/screens/editor_screen.dart';
 import 'package:mitsumori_seikyu/screens/premium_screen.dart';
 import 'package:mitsumori_seikyu/models/models.dart';
 import 'package:mitsumori_seikyu/state/app_controller.dart';
+import 'package:mitsumori_seikyu/plan/limits.dart';
 import 'package:mitsumori_seikyu/theme.dart';
 
 import 'support/harness.dart';
@@ -133,12 +134,34 @@ void main() {
     expect(find.text('/ 1か月（自動更新）'), findsOneWidget);
     expect(find.text('¥1,200'), findsOneWidget);
     expect(find.text('/ 1年（自動更新）'), findsOneWidget);
-    expect(find.textContaining('無料で月額をはじめる'), findsNothing);
-    await tester.scrollUntilVisible(find.byKey(const Key('restore')), 200);
+    expect(find.text('1週間無料で月額をはじめる'), findsOneWidget);
+    expect(find.text('1週間無料で年額をはじめる'), findsOneWidget);
+    expect(find.textContaining('はじめての方は1週間無料'), findsWidgets);
     expect(find.byKey(const Key('restore')), findsOneWidget);
+    expect(find.text('購入を復元'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('link-terms')), 200);
     expect(find.byKey(const Key('link-terms')), findsOneWidget);
     expect(find.byKey(const Key('link-privacy')), findsOneWidget);
-    expect(find.textContaining('自動更新され'), findsOneWidget);
+    expect(find.textContaining('お支払いは購入の確定時'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('settings shows the real version and a visible restore tile', (
+    tester,
+  ) async {
+    phoneSize(tester);
+    final controller = await tester.runAsync(() => openController(directory));
+    await tester.pumpWidget(AppShell(controller: controller!));
+    await frames(tester);
+
+    await tester.tap(find.byKey(const Key('tab-settings')));
+    await frames(tester);
+
+    expect(find.byKey(const Key('restore-settings')), findsOneWidget);
+    expect(find.text('購入を復元'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('バージョン'), 200);
+    expect(find.text('${AppInfo.name} ${AppInfo.version}'), findsOneWidget);
+    expect(find.textContaining('1.0.3'), findsOneWidget);
     controller.dispose();
   });
 }

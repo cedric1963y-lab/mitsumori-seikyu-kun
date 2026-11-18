@@ -179,6 +179,19 @@ class _PremiumScreenState extends State<PremiumScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('restore'),
+              onPressed: pending ? null : controller.restorePremium,
+              icon: const Icon(Icons.restore),
+              label: const Text(
+                '購入を復元',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+            ),
+          ),
           const SizedBox(height: 14),
           const Text(
             'お支払いは購入の確定時にApple IDへ請求されます。無料体験の対象の場合は、無料期間の終了時に課金が始まり、終了の24時間以上前に解約すれば請求されません。サブスクリプションは、現在の期間が終わる24時間以上前に解約しない限り、同じ期間・同じ価格で自動更新され、終了前の24時間以内に更新料が請求されます。管理と解約はiPhoneの「設定」> Apple ID >「サブスクリプション」から行えます。',
@@ -199,11 +212,6 @@ class _PremiumScreenState extends State<PremiumScreen> {
           Wrap(
             alignment: WrapAlignment.center,
             children: [
-              TextButton(
-                key: const Key('restore'),
-                onPressed: pending ? null : controller.restorePremium,
-                child: const Text('購入を復元'),
-              ),
               TextButton(
                 key: const Key('link-terms'),
                 onPressed: () => openExternal(AppLinks.appleEula),

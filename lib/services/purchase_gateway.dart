@@ -107,10 +107,12 @@ List<StoreProduct> get fallbackPremiumProducts => const [
     id: PlanLimits.monthlyProductId,
     priceLabel: PlanLimits.monthlyPriceLabel,
     title: 'プレミアム（月額）',
+    trialLabel: PlanLimits.freeTrialLabel,
   ),
   StoreProduct(
     id: PlanLimits.yearlyProductId,
     priceLabel: PlanLimits.yearlyPriceLabel,
     title: 'プレミアム（年額）',
+    trialLabel: PlanLimits.freeTrialLabel,
   ),
 ];

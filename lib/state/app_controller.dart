@@ -94,10 +94,12 @@ class AppController extends ChangeNotifier {
   }
 
   /// `1週間` when the App Store offers this Apple ID the free trial.
+  /// Before StoreKit prices load, the Japan fallback also includes the trial.
   String? trialFor(String productId) {
     for (final product in storeProducts) {
       if (product.id == productId) return product.trialLabel;
     }
+    if (storeProducts.isEmpty) return PlanLimits.freeTrialLabel;
     return null;
   }
 

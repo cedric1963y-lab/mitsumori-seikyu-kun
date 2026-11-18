@@ -31,19 +31,42 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Panel(
             padding: EdgeInsets.zero,
-            child: ListTile(
-              key: const Key('plan-tile'),
-              leading: const Icon(
-                Icons.workspace_premium_outlined,
-                color: AppColors.orange,
-              ),
-              title: const Text(
-                'プラン',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(plan),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => openPremium(context),
+            child: Column(
+              children: [
+                ListTile(
+                  key: const Key('plan-tile'),
+                  leading: const Icon(
+                    Icons.workspace_premium_outlined,
+                    color: AppColors.orange,
+                  ),
+                  title: const Text(
+                    'プラン',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Text(plan),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => openPremium(context),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  key: const Key('restore-settings'),
+                  leading: const Icon(Icons.restore, color: AppColors.slate),
+                  title: const Text(
+                    '購入を復元',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text('以前の契約をこのiPhoneに復元します'),
+                  onTap: () async {
+                    await controller.restorePremium();
+                    if (!context.mounted) return;
+                    if (controller.premium) {
+                      showSnack(context, 'プレミアムが有効になりました。');
+                    } else if (controller.purchaseError != null) {
+                      showSnack(context, controller.purchaseError!);
+                    }
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 10),
