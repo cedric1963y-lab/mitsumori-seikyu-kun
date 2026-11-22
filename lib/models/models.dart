@@ -86,10 +86,15 @@ class BusinessProfile {
     this.email = '',
     this.bank = '',
     this.registrationNumber = '',
+    this.representative = '',
   });
 
   /// 屋号または氏名.
   final String name;
+
+  /// 役職・代表者名 (e.g. `代表 山田 太郎`), printed as a second line under
+  /// [name]. Optional; '' keeps the one-line issuer block.
+  final String representative;
   final String postalCode;
   final String address;
   final String phone;
@@ -111,6 +116,7 @@ class BusinessProfile {
     'email': email,
     'bank': bank,
     'registrationNumber': registrationNumber,
+    if (representative.isNotEmpty) 'representative': representative,
   };
 
   static BusinessProfile fromJson(Object? json) {
@@ -123,6 +129,7 @@ class BusinessProfile {
       email: _string(json['email']),
       bank: _string(json['bank']),
       registrationNumber: _string(json['registrationNumber']),
+      representative: _string(json['representative']),
     );
   }
 }
@@ -236,6 +243,8 @@ class DocLine {
     required this.unit,
     required this.unitPrice,
     required this.taxRate,
+    this.workDate,
+    this.detail = '',
   });
 
   final String name;
@@ -244,8 +253,26 @@ class DocLine {
   final int unitPrice;
   final TaxRate taxRate;
 
+  /// 施工日 as a [dayKey] string, or null. Optional; when any line has one,
+  /// the PDF adds a 月日 column.
+  final String? workDate;
+
+  /// 施工内容・備考 for this line, or ''. Optional; when any line has one, the
+  /// PDF adds a 施工内容 column.
+  final String detail;
+
   /// 数量 × 単価, rounded to the yen per line.
   int get amount => (quantity * unitPrice).round();
+
+  DateTime? get worked {
+    final key = workDate;
+    if (key == null) return null;
+    try {
+      return parseDayKey(key);
+    } on FormatException {
+      return null;
+    }
+  }
 
   DocLine copyWith({
     String? name,
@@ -253,6 +280,9 @@ class DocLine {
     String? unit,
     int? unitPrice,
     TaxRate? taxRate,
+    String? workDate,
+    bool clearWorkDate = false,
+    String? detail,
   }) {
     return DocLine(
       name: name ?? this.name,
@@ -260,6 +290,8 @@ class DocLine {
       unit: unit ?? this.unit,
       unitPrice: unitPrice ?? this.unitPrice,
       taxRate: taxRate ?? this.taxRate,
+      workDate: clearWorkDate ? null : (workDate ?? this.workDate),
+      detail: detail ?? this.detail,
     );
   }
 
@@ -269,15 +301,22 @@ class DocLine {
     'unit': unit,
     'unitPrice': unitPrice,
     'taxRate': taxRate.key,
+    'workDate': ?workDate,
+    if (detail.isNotEmpty) 'detail': detail,
   };
 
-  static DocLine fromJson(Map<String, dynamic> json) => DocLine(
-    name: _string(json['name']),
-    quantity: _double(json['quantity']),
-    unit: _string(json['unit']),
-    unitPrice: _int(json['unitPrice']),
-    taxRate: TaxRate.fromKey(json['taxRate']),
-  );
+  static DocLine fromJson(Map<String, dynamic> json) {
+    final date = json['workDate'];
+    return DocLine(
+      name: _string(json['name']),
+      quantity: _double(json['quantity']),
+      unit: _string(json['unit']),
+      unitPrice: _int(json['unitPrice']),
+      taxRate: TaxRate.fromKey(json['taxRate']),
+      workDate: date is String && date.isNotEmpty ? date : null,
+      detail: _string(json['detail']),
+    );
+  }
 
   static DocLine fromItem(Item item, double quantity) => DocLine(
     name: item.name,
@@ -286,6 +325,31 @@ class DocLine {
     unitPrice: item.unitPrice,
     taxRate: item.taxRate,
   );
+}
+
+/// 明細の見出し, chosen in 設定. [item] keeps the original wording.
+enum LineLabel {
+  item('item', '項目', '品目・内容'),
+  site('site', '現場名', '現場名'),
+  product('product', '品名', '品名'),
+  content('content', '内容', '内容');
+
+  const LineLabel(this.key, this.label, this.heading);
+
+  final String key;
+
+  /// Shown in the 設定 picker.
+  final String label;
+
+  /// Used as the line-name field label and the PDF column header.
+  final String heading;
+
+  static LineLabel fromKey(Object? key) {
+    for (final v in values) {
+      if (v.key == key) return v;
+    }
+    return LineLabel.item;
+  }
 }
 
 /// 見積書 or 請求書.

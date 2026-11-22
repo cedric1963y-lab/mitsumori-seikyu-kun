@@ -41,6 +41,9 @@ class AppController extends ChangeNotifier {
   final bool demoPremium;
 
   BusinessProfile profile = const BusinessProfile();
+
+  /// 明細の見出し (設定). [LineLabel.item] keeps the original wording.
+  LineLabel lineLabel = LineLabel.item;
   List<Customer> customers = [];
   List<Item> items = [];
   List<Doc> documents = [];
@@ -112,6 +115,7 @@ class AppController extends ChangeNotifier {
     entitlement = await repository.loadEntitlement();
     final settings = await repository.loadSettings();
     profile = BusinessProfile.fromJson(settings['profile']);
+    lineLabel = LineLabel.fromKey(settings['lineLabel']);
     _counters = _intMap(settings['counters']);
     _created = _intMap(settings['created']);
     try {
@@ -147,7 +151,14 @@ class AppController extends ChangeNotifier {
       'profile': profile.toJson(),
       'counters': _counters,
       'created': _created,
+      if (lineLabel != LineLabel.item) 'lineLabel': lineLabel.key,
     });
+  }
+
+  Future<void> setLineLabel(LineLabel label) async {
+    lineLabel = label;
+    await _saveSettings();
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------- profile
@@ -165,6 +176,7 @@ class AppController extends ChangeNotifier {
       email: _optionalLine(draft.email, 60),
       bank: _optionalText(draft.bank, 120, maxLines: 3),
       registrationNumber: number,
+      representative: _optionalLine(draft.representative, 30),
     );
     await _saveSettings();
     notifyListeners();
@@ -432,7 +444,14 @@ class AppController extends ChangeNotifier {
 
   DocLine _validLine(DocLine line) {
     if (collapseWhitespace(line.name).isEmpty) {
-      throw const InvalidInput('品目名を入力してください。');
+      throw InvalidInput(
+        lineLabel == LineLabel.item
+            ? '品目名を入力してください。'
+            : '${lineLabel.heading}を入力してください。',
+      );
+    }
+    if (line.detail.length > 40) {
+      throw const InvalidInput('施工内容は40文字以内で入力してください。');
     }
     if (line.quantity <= 0 || line.quantity > 100000) {
       throw const InvalidInput('数量は0より大きく、100,000以下で入力してください。');
@@ -568,6 +587,7 @@ class AppController extends ChangeNotifier {
       totals: totalsFor(doc),
       profile: profile,
       seal: premium ? seal : null,
+      lineHeading: lineLabel.heading,
       footer: premium ? null : PlanLimits.freeFooter,
     );
   }

@@ -26,6 +26,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final _email = TextEditingController(text: _initial.email);
   late final _bank = TextEditingController(text: _initial.bank);
   late final _number = TextEditingController(text: _initial.registrationNumber);
+  late final _representative = TextEditingController(
+    text: _initial.representative,
+  );
 
   @override
   void dispose() {
@@ -37,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _email,
       _bank,
       _number,
+      _representative,
     ]) {
       c.dispose();
     }
@@ -57,6 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           email: _email.text,
           bank: _bank.text,
           registrationNumber: _number.text,
+          representative: _representative.text,
         ),
       ),
     );
@@ -108,6 +113,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: const InputDecoration(
               labelText: '屋号または氏名（必須）',
               hintText: '例: 山田内装 / 山田 太郎',
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key('profile-representative'),
+            controller: _representative,
+            decoration: const InputDecoration(
+              labelText: '役職・代表者名（任意）',
+              hintText: '例: 代表 山田 太郎',
+              helperText: '入れると、屋号の下に2行目として印字します。',
             ),
           ),
           const SizedBox(height: 10),

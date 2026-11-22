@@ -78,7 +78,7 @@ abstract final class PlanLimits {
 abstract final class AppInfo {
   static const name = 'かんたん見積・請求くん';
   static const shortName = '見積・請求くん';
-  static const version = '1.0.3';
+  static const version = '1.0.4';
 }
 
 abstract final class AppLinks {

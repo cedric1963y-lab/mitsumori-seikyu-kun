@@ -12,9 +12,12 @@ import 'document_screen.dart';
 /// Creates or edits a 見積書 / 請求書. [initial] with an empty id is a new
 /// draft from [AppController.newDraft].
 class EditorScreen extends StatefulWidget {
-  const EditorScreen({required this.initial, super.key});
+  const EditorScreen({required this.initial, this.openLine, super.key});
 
   final Doc initial;
+
+  /// Debug screenshots only: opens this line's edit sheet on start.
+  final int? openLine;
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -28,6 +31,17 @@ class _EditorScreenState extends State<EditorScreen> {
   var _saving = false;
 
   bool get _isNew => widget.initial.id.isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    final line = widget.openLine;
+    if (line != null && line < widget.initial.lines.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _editLine(line);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -143,14 +157,21 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _addFree() async {
-    final result = await showLineSheet(context);
+    final result = await showLineSheet(
+      context,
+      label: AppScope.of(context).lineLabel,
+    );
     final line = result?.line;
     if (line == null) return;
     _update(_doc.copyWith(lines: [..._doc.lines, line]));
   }
 
   Future<void> _editLine(int index) async {
-    final result = await showLineSheet(context, initial: _doc.lines[index]);
+    final result = await showLineSheet(
+      context,
+      initial: _doc.lines[index],
+      label: AppScope.of(context).lineLabel,
+    );
     if (result == null) return;
     final lines = [..._doc.lines];
     if (result.delete) {
@@ -484,7 +505,11 @@ class _LineRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    lineDetail(line),
+                    [
+                      if (line.worked != null) formatShortDate(line.worked!),
+                      if (line.detail.isNotEmpty) line.detail,
+                      lineDetail(line),
+                    ].join('・'),
                     style: const TextStyle(
                       color: AppColors.muted,
                       fontSize: 13.5,

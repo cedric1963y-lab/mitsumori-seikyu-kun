@@ -403,18 +403,23 @@ class TaxRatePicker extends StatelessWidget {
 
 /// Edits one document line, or creates a free-form one when [initial] is
 /// null.
-Future<LineResult?> showLineSheet(BuildContext context, {DocLine? initial}) {
+Future<LineResult?> showLineSheet(
+  BuildContext context, {
+  DocLine? initial,
+  LineLabel label = LineLabel.item,
+}) {
   return showModalBottomSheet<LineResult>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _LineSheet(initial: initial),
+    builder: (_) => _LineSheet(initial: initial, label: label),
   );
 }
 
 class _LineSheet extends StatefulWidget {
-  const _LineSheet({required this.initial});
+  const _LineSheet({required this.initial, required this.label});
 
   final DocLine? initial;
+  final LineLabel label;
 
   @override
   State<_LineSheet> createState() => _LineSheetState();
@@ -430,10 +435,17 @@ class _LineSheetState extends State<_LineSheet> {
     text: widget.initial == null ? '' : widget.initial!.unitPrice.toString(),
   );
   late var _rate = widget.initial?.taxRate ?? TaxRate.ten;
+  late String? _workDate = widget.initial?.worked == null
+      ? null
+      : widget.initial!.workDate;
+  late final _detail = TextEditingController(
+    text: widget.initial?.detail ?? '',
+  );
   String? _error;
 
   @override
   void dispose() {
+    _detail.dispose();
     _name.dispose();
     _quantity.dispose();
     _unit.dispose();
@@ -452,7 +464,11 @@ class _LineSheetState extends State<_LineSheet> {
     final price = parseYen(_price.text);
     String? error;
     if (_name.text.trim().isEmpty) {
-      error = '品目名を入力してください。';
+      error = widget.label == LineLabel.item
+          ? '品目名を入力してください。'
+          : '${widget.label.heading}を入力してください。';
+    } else if (collapseWhitespace(_detail.text).length > 40) {
+      error = '施工内容は40文字以内で入力してください。';
     } else if (quantity == null || quantity <= 0) {
       error = '数量を0より大きい数字で入力してください。';
     } else if (_unit.text.trim().isEmpty) {
@@ -473,9 +489,25 @@ class _LineSheetState extends State<_LineSheet> {
           unit: collapseWhitespace(_unit.text),
           unitPrice: price!,
           taxRate: _rate,
+          workDate: _workDate,
+          detail: collapseWhitespace(_detail.text),
         ),
       ),
     );
+  }
+
+  Future<void> _pickWorkDate() async {
+    final current = _workDate == null
+        ? DateTime.now()
+        : parseDayKey(_workDate!);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    setState(() => _workDate = dayKey(picked));
   }
 
   @override
@@ -500,7 +532,44 @@ class _LineSheetState extends State<_LineSheet> {
             TextField(
               key: const Key('line-name'),
               controller: _name,
-              decoration: const InputDecoration(labelText: '品目・内容'),
+              decoration: InputDecoration(labelText: widget.label.heading),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('line-work-date'),
+                    onPressed: _pickWorkDate,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(64, 48),
+                      alignment: Alignment.centerLeft,
+                    ),
+                    icon: const Icon(Icons.event_outlined, size: 20),
+                    label: Text(
+                      _workDate == null
+                          ? '施工日（任意）'
+                          : '施工日 ${formatDate(parseDayKey(_workDate!))}',
+                    ),
+                  ),
+                ),
+                if (_workDate != null)
+                  IconButton(
+                    key: const Key('line-work-date-clear'),
+                    tooltip: '施工日を消す',
+                    onPressed: () => setState(() => _workDate = null),
+                    icon: const Icon(Icons.close),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('line-detail'),
+              controller: _detail,
+              decoration: const InputDecoration(
+                labelText: '施工内容（任意）',
+                hintText: '例: クロス張替え',
+              ),
             ),
             const SizedBox(height: 12),
             Row(

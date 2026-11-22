@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../errors.dart';
 import '../format.dart';
+import '../models/models.dart';
 import '../plan/limits.dart';
 import '../services/links.dart';
 import '../services/share_service.dart';
@@ -92,6 +93,24 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
               ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Panel(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              key: const Key('line-label-tile'),
+              leading: const Icon(
+                Icons.view_column_outlined,
+                color: AppColors.slate,
+              ),
+              title: const Text(
+                '明細の見出し',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text('${controller.lineLabel.label}（見積書・請求書の明細の列名）'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _pickLineLabel(context),
             ),
           ),
           const SizedBox(height: 10),
@@ -216,4 +235,51 @@ class _Block extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _pickLineLabel(BuildContext context) async {
+  final controller = AppScope.of(context);
+  final picked = await showModalBottomSheet<LineLabel>(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 4, 20, 4),
+            child: Text(
+              '明細の見出し',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(
+              '入力画面とPDFの明細の列名が変わります。',
+              style: TextStyle(color: AppColors.muted),
+            ),
+          ),
+          for (final option in LineLabel.values)
+            ListTile(
+              key: Key('line-label-${option.key}'),
+              title: Text(
+                option.label,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: option == LineLabel.item
+                  ? const Text('PDFでは「品目・内容」（これまでどおり）')
+                  : null,
+              trailing: option == controller.lineLabel
+                  ? const Icon(Icons.check, color: AppColors.orange)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, option),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+  if (picked == null || !context.mounted) return;
+  await guard(context, () => controller.setLineLabel(picked));
 }

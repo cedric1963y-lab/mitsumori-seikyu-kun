@@ -25,6 +25,7 @@ Future<Uint8List> buildDocumentPdf({
   required BusinessProfile profile,
   Uint8List? seal,
   String? footer,
+  String lineHeading = '品目・内容',
 }) async {
   final font = pw.Font.ttf(fontData);
   final bold = pw.Font.ttf(boldFontData);
@@ -63,7 +64,7 @@ Future<Uint8List> buildDocumentPdf({
           ],
         ),
         pw.SizedBox(height: 18),
-        _table(doc),
+        _table(doc, lineHeading),
         pw.SizedBox(height: 10),
         _totals(totals),
         if (doc.isInvoice && profile.bank.isNotEmpty) ...[
@@ -212,6 +213,13 @@ pw.Widget _issuer(Doc doc, BusinessProfile profile, pw.ImageProvider? seal) {
       profile.name.isEmpty ? '（自社情報を設定してください）' : profile.name,
       style: pw.TextStyle(fontSize: 12.5, fontWeight: pw.FontWeight.bold),
     ),
+    if (profile.representative.isNotEmpty) ...[
+      pw.SizedBox(height: 3),
+      pw.Text(
+        profile.representative,
+        style: const pw.TextStyle(fontSize: 10.5),
+      ),
+    ],
     pw.SizedBox(height: 4),
     if (profile.postalCode.isNotEmpty)
       pw.Text(
@@ -274,18 +282,37 @@ pw.Widget _cell(
   );
 }
 
-pw.Widget _table(Doc doc) {
+/// `11月19日`, for the 月日 column.
+String _monthDay(DateTime? d) => d == null ? '' : '${d.month}月${d.day}日';
+
+pw.Widget _table(Doc doc, String lineHeading) {
   const minRows = 8;
   String name(DocLine l) => switch (l.taxRate) {
     TaxRate.eight => '${l.name} ※',
     TaxRate.exempt => '${l.name}（非課税）',
     TaxRate.ten => l.name,
   };
+  // Optional columns only appear when a line uses them, so documents
+  // without 施工日 / 施工内容 print exactly as before.
+  final hasDate = doc.lines.any((l) => l.worked != null);
+  final hasDetail = doc.lines.any((l) => l.detail.isNotEmpty);
+  final widths = <pw.TableColumnWidth>[
+    if (hasDate) const pw.FlexColumnWidth(1.45),
+    pw.FlexColumnWidth(hasDetail ? 3.4 : (hasDate ? 4.2 : 5.2)),
+    if (hasDetail) const pw.FlexColumnWidth(2.2),
+    const pw.FlexColumnWidth(1.1),
+    const pw.FlexColumnWidth(0.9),
+    const pw.FlexColumnWidth(1.6),
+    const pw.FlexColumnWidth(1.8),
+  ];
+  final columns = widths.length;
   final rows = <pw.TableRow>[
     pw.TableRow(
       decoration: const pw.BoxDecoration(color: _head),
       children: [
-        _cell('品目・内容', header: true),
+        if (hasDate) _cell('月日', header: true, align: pw.TextAlign.center),
+        _cell(lineHeading, header: true),
+        if (hasDetail) _cell('施工内容', header: true),
         _cell('数量', header: true, align: pw.TextAlign.right),
         _cell('単位', header: true, align: pw.TextAlign.center),
         _cell('単価', header: true, align: pw.TextAlign.right),
@@ -295,7 +322,9 @@ pw.Widget _table(Doc doc) {
     for (final l in doc.lines)
       pw.TableRow(
         children: [
+          if (hasDate) _cell(_monthDay(l.worked), align: pw.TextAlign.center),
           _cell(name(l)),
+          if (hasDetail) _cell(l.detail),
           _cell(formatQuantity(l.quantity), align: pw.TextAlign.right),
           _cell(l.unit, align: pw.TextAlign.center),
           _cell(formatNumber(l.unitPrice), align: pw.TextAlign.right),
@@ -303,7 +332,7 @@ pw.Widget _table(Doc doc) {
         ],
       ),
     for (var i = doc.lines.length; i < minRows; i++)
-      pw.TableRow(children: [for (var c = 0; c < 5; c++) _cell(' ')]),
+      pw.TableRow(children: [for (var c = 0; c < columns; c++) _cell(' ')]),
   ];
   return pw.Table(
     border: const pw.TableBorder(
@@ -314,13 +343,7 @@ pw.Widget _table(Doc doc) {
       horizontalInside: pw.BorderSide(color: _line, width: 0.5),
       verticalInside: pw.BorderSide(color: _line, width: 0.5),
     ),
-    columnWidths: const {
-      0: pw.FlexColumnWidth(5.2),
-      1: pw.FlexColumnWidth(1.1),
-      2: pw.FlexColumnWidth(0.9),
-      3: pw.FlexColumnWidth(1.6),
-      4: pw.FlexColumnWidth(1.8),
-    },
+    columnWidths: {for (var i = 0; i < columns; i++) i: widths[i]},
     children: rows,
   );
 }

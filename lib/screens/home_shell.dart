@@ -14,7 +14,8 @@ class HomeShell extends StatefulWidget {
   const HomeShell({this.startTab = 0, this.startDocumentId = '', super.key});
 
   /// 0-3 picks a tab. Debug screenshot runs also use 10 (edit
-  /// [startDocumentId]), 11 (プレミアム) and 12 (preview [startDocumentId]).
+  /// [startDocumentId]), 11 (プレミアム), 12 (preview [startDocumentId]) and
+  /// 13 (edit [startDocumentId] with its first line open).
   final int startTab;
   final String startDocumentId;
 
@@ -37,6 +38,7 @@ class _HomeShellState extends State<HomeShell> {
       final Widget? page = switch (widget.startTab) {
         10 when doc != null => EditorScreen(initial: doc),
         12 when doc != null => DocumentScreen(documentId: doc.id),
+        13 when doc != null => EditorScreen(initial: doc, openLine: 0),
         11 => const PremiumScreen(),
         _ => null,
       };
