@@ -291,8 +291,8 @@ class _EditorScreenState extends State<EditorScreen> {
               controller: _title,
               onChanged: (_) => _dirty = true,
               decoration: const InputDecoration(
-                labelText: '件名',
-                hintText: '例: 港北倉庫 事務所内装工事',
+                labelText: '件名（任意）',
+                hintText: '空欄のままでも保存できます',
               ),
             ),
             const SizedBox(height: 10),
