@@ -282,9 +282,6 @@ pw.Widget _cell(
   );
 }
 
-/// `11月19日`, for the 月日 column.
-String _monthDay(DateTime? d) => d == null ? '' : '${d.month}月${d.day}日';
-
 pw.Widget _table(Doc doc, String lineHeading) {
   const minRows = 8;
   String name(DocLine l) => switch (l.taxRate) {
@@ -295,10 +292,15 @@ pw.Widget _table(Doc doc, String lineHeading) {
   // Optional columns only appear when a line uses them, so documents
   // without 施工日 / 施工内容 print exactly as before.
   final hasDate = doc.lines.any((l) => l.worked != null);
+  final multiDay = doc.lines.any((l) => l.workedDays.length > 1);
   final hasDetail = doc.lines.any((l) => l.detail.isNotEmpty);
   final widths = <pw.TableColumnWidth>[
-    if (hasDate) const pw.FlexColumnWidth(1.45),
-    pw.FlexColumnWidth(hasDetail ? 3.4 : (hasDate ? 4.2 : 5.2)),
+    if (hasDate) pw.FlexColumnWidth(multiDay ? 2.1 : 1.45),
+    pw.FlexColumnWidth(
+      hasDetail
+          ? (multiDay ? 2.75 : 3.4)
+          : (hasDate ? (multiDay ? 3.55 : 4.2) : 5.2),
+    ),
     if (hasDetail) const pw.FlexColumnWidth(2.2),
     const pw.FlexColumnWidth(1.1),
     const pw.FlexColumnWidth(0.9),
@@ -322,7 +324,11 @@ pw.Widget _table(Doc doc, String lineHeading) {
     for (final l in doc.lines)
       pw.TableRow(
         children: [
-          if (hasDate) _cell(_monthDay(l.worked), align: pw.TextAlign.center),
+          if (hasDate)
+            _cell(
+              formatWorkDays(l.workedDays, short: l.workedDays.length > 1),
+              align: pw.TextAlign.center,
+            ),
           _cell(name(l)),
           if (hasDetail) _cell(l.detail),
           _cell(formatQuantity(l.quantity), align: pw.TextAlign.right),
@@ -343,7 +349,9 @@ pw.Widget _table(Doc doc, String lineHeading) {
       horizontalInside: pw.BorderSide(color: _line, width: 0.5),
       verticalInside: pw.BorderSide(color: _line, width: 0.5),
     ),
-    columnWidths: {for (var i = 0; i < columns; i++) i: widths[i]},
+    columnWidths: {
+      for (var i = 0; i < columns; i++) i: widths[i],
+    },
     children: rows,
   );
 }

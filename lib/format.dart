@@ -50,6 +50,37 @@ String formatJapaneseDate(DateTime value) =>
 String formatShortDate(DateTime value) =>
     '${value.month}/${value.day}（${weekdayLabel(value)}）';
 
+/// 施工日 list, consecutive days joined: `11月19日〜22日、25日`
+/// ([short]: `11/19〜22・25`). Month is repeated only when it changes.
+String formatWorkDays(List<DateTime> days, {bool short = false}) {
+  if (days.isEmpty) return '';
+  final sorted = [...days]..sort();
+  final runs = <(DateTime, DateTime)>[];
+  for (final d in sorted) {
+    if (runs.isNotEmpty) {
+      final (a, b) = runs.last;
+      final next = DateTime(b.year, b.month, b.day + 1);
+      if (d == b) continue;
+      if (d == next) {
+        runs[runs.length - 1] = (a, d);
+        continue;
+      }
+    }
+    runs.add((d, d));
+  }
+  int? month;
+  String day(DateTime d) {
+    final sameMonth = month == d.month;
+    month = d.month;
+    if (short) return sameMonth ? '${d.day}' : '${d.month}/${d.day}';
+    return sameMonth ? '${d.day}日' : '${d.month}月${d.day}日';
+  }
+  final parts = [
+    for (final (a, b) in runs) a == b ? day(a) : '${day(a)}〜${day(b)}',
+  ];
+  return parts.join(short ? '・' : '、');
+}
+
 /// `2026/10/08`, for CSV.
 String formatSlashDate(DateTime value) {
   final m = value.month.toString().padLeft(2, '0');

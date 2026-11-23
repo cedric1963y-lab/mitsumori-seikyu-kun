@@ -244,6 +244,7 @@ class DocLine {
     required this.unitPrice,
     required this.taxRate,
     this.workDate,
+    this.workDates = const [],
     this.detail = '',
   });
 
@@ -257,6 +258,10 @@ class DocLine {
   /// the PDF adds a 月日 column.
   final String? workDate;
 
+  /// Every 施工日 ([dayKey] strings, sorted, first == [workDate]) when the line
+  /// covers more than one day (常用の複数日・期間). Empty means [workDate] only.
+  final List<String> workDates;
+
   /// 施工内容・備考 for this line, or ''. Optional; when any line has one, the
   /// PDF adds a 施工内容 column.
   final String detail;
@@ -265,13 +270,33 @@ class DocLine {
   int get amount => (quantity * unitPrice).round();
 
   DateTime? get worked {
-    final key = workDate;
-    if (key == null) return null;
-    try {
-      return parseDayKey(key);
-    } on FormatException {
-      return null;
+    final days = workedDays;
+    return days.isEmpty ? null : days.first;
+  }
+
+  /// All 施工日 of this line, sorted, without duplicates.
+  List<DateTime> get workedDays {
+    final keys = workDates.isNotEmpty
+        ? workDates
+        : [?workDate];
+    final days = <DateTime>[];
+    for (final key in keys) {
+      try {
+        final d = parseDayKey(key);
+        if (!days.contains(d)) days.add(d);
+      } on FormatException {
+        continue;
+      }
     }
+    days.sort();
+    return days;
+  }
+
+  /// Builds a line's date fields from picked days (any order).
+  static (String?, List<String>) datesFrom(Iterable<DateTime> days) {
+    final keys = {for (final d in days) dayKey(d)}.toList()..sort();
+    if (keys.isEmpty) return (null, const []);
+    return (keys.first, keys.length > 1 ? keys : const []);
   }
 
   DocLine copyWith({
@@ -281,6 +306,7 @@ class DocLine {
     int? unitPrice,
     TaxRate? taxRate,
     String? workDate,
+    List<String>? workDates,
     bool clearWorkDate = false,
     String? detail,
   }) {
@@ -291,6 +317,9 @@ class DocLine {
       unitPrice: unitPrice ?? this.unitPrice,
       taxRate: taxRate ?? this.taxRate,
       workDate: clearWorkDate ? null : (workDate ?? this.workDate),
+      workDates: clearWorkDate
+          ? const []
+          : (workDates ?? (workDate != null ? const [] : this.workDates)),
       detail: detail ?? this.detail,
     );
   }
@@ -302,18 +331,27 @@ class DocLine {
     'unitPrice': unitPrice,
     'taxRate': taxRate.key,
     'workDate': ?workDate,
+    if (workDates.length > 1) 'workDates': workDates,
     if (detail.isNotEmpty) 'detail': detail,
   };
 
   static DocLine fromJson(Map<String, dynamic> json) {
     final date = json['workDate'];
+    final rawDates = json['workDates'];
+    final dates = rawDates is List
+        ? ([for (final d in rawDates) if (d is String && d.isNotEmpty) d]
+            ..sort())
+        : <String>[];
     return DocLine(
       name: _string(json['name']),
       quantity: _double(json['quantity']),
       unit: _string(json['unit']),
       unitPrice: _int(json['unitPrice']),
       taxRate: TaxRate.fromKey(json['taxRate']),
-      workDate: date is String && date.isNotEmpty ? date : null,
+      workDate: dates.isNotEmpty
+          ? dates.first
+          : (date is String && date.isNotEmpty ? date : null),
+      workDates: dates.length > 1 ? dates : const [],
       detail: _string(json['detail']),
     );
   }

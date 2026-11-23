@@ -450,6 +450,9 @@ class AppController extends ChangeNotifier {
             : '${lineLabel.heading}を入力してください。',
       );
     }
+    if (line.workDates.length > 62) {
+      throw const InvalidInput('施工日は1つの明細に62日までです。');
+    }
     if (line.detail.length > 40) {
       throw const InvalidInput('施工内容は40文字以内で入力してください。');
     }

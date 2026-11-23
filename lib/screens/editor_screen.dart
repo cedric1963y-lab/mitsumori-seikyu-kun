@@ -506,7 +506,10 @@ class _LineRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     [
-                      if (line.worked != null) formatShortDate(line.worked!),
+                      if (line.workedDays.length == 1)
+                        formatShortDate(line.worked!)
+                      else if (line.workedDays.length > 1)
+                        '${formatWorkDays(line.workedDays, short: true)}（${line.workedDays.length}日）',
                       if (line.detail.isNotEmpty) line.detail,
                       lineDetail(line),
                     ].join('・'),

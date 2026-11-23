@@ -435,9 +435,8 @@ class _LineSheetState extends State<_LineSheet> {
     text: widget.initial == null ? '' : widget.initial!.unitPrice.toString(),
   );
   late var _rate = widget.initial?.taxRate ?? TaxRate.ten;
-  late String? _workDate = widget.initial?.worked == null
-      ? null
-      : widget.initial!.workDate;
+  /// 施工日. One day, several days, or a 期間 (all its days).
+  late final List<DateTime> _days = [...?widget.initial?.workedDays];
   late final _detail = TextEditingController(
     text: widget.initial?.detail ?? '',
   );
@@ -480,6 +479,7 @@ class _LineSheetState extends State<_LineSheet> {
       setState(() => _error = error);
       return;
     }
+    final dates = DocLine.datesFrom(_days);
     Navigator.pop(
       context,
       LineResult.save(
@@ -489,25 +489,67 @@ class _LineSheetState extends State<_LineSheet> {
           unit: collapseWhitespace(_unit.text),
           unitPrice: price!,
           taxRate: _rate,
-          workDate: _workDate,
+          workDate: dates.$1,
+          workDates: dates.$2,
           detail: collapseWhitespace(_detail.text),
         ),
       ),
     );
   }
 
+  static const maxWorkDays = 62;
+
+  void _addDays(Iterable<DateTime> days) {
+    setState(() {
+      for (final d in days) {
+        final day = dateOnly(d);
+        if (!_days.contains(day)) _days.add(day);
+      }
+      _days.sort();
+      if (_days.length > maxWorkDays) {
+        _days.removeRange(maxWorkDays, _days.length);
+        _error = '施工日は1つの明細に$maxWorkDays日までです。';
+      }
+    });
+  }
+
   Future<void> _pickWorkDate() async {
-    final current = _workDate == null
-        ? DateTime.now()
-        : parseDayKey(_workDate!);
     final picked = await showDatePicker(
       context: context,
-      initialDate: current,
+      initialDate: _days.isEmpty
+          ? DateTime.now()
+          : DateTime(_days.last.year, _days.last.month, _days.last.day + 1),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      helpText: _days.isEmpty ? '施工日を選ぶ' : '施工日を追加',
     );
     if (picked == null) return;
-    setState(() => _workDate = dayKey(picked));
+    _addDays([picked]);
+  }
+
+  Future<void> _pickWorkRange() async {
+    final now = dateOnly(DateTime.now());
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _days.length > 1
+          ? DateTimeRange(start: _days.first, end: _days.last)
+          : null,
+      currentDate: now,
+      helpText: '施工期間を選ぶ',
+      saveText: '決定',
+    );
+    if (picked == null) return;
+    final days = <DateTime>[];
+    for (
+      var d = dateOnly(picked.start);
+      !d.isAfter(picked.end) && days.length <= maxWorkDays;
+      d = DateTime(d.year, d.month, d.day + 1)
+    ) {
+      days.add(d);
+    }
+    _addDays(days);
   }
 
   @override
@@ -543,25 +585,60 @@ class _LineSheetState extends State<_LineSheet> {
                     onPressed: _pickWorkDate,
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(64, 48),
-                      alignment: Alignment.centerLeft,
                     ),
                     icon: const Icon(Icons.event_outlined, size: 20),
-                    label: Text(
-                      _workDate == null
-                          ? '施工日（任意）'
-                          : '施工日 ${formatDate(parseDayKey(_workDate!))}',
-                    ),
+                    label: Text(_days.isEmpty ? '施工日（任意）' : '日付を追加'),
                   ),
                 ),
-                if (_workDate != null)
-                  IconButton(
-                    key: const Key('line-work-date-clear'),
-                    tooltip: '施工日を消す',
-                    onPressed: () => setState(() => _workDate = null),
-                    icon: const Icon(Icons.close),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('line-work-range'),
+                    onPressed: _pickWorkRange,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(64, 48),
+                    ),
+                    icon: const Icon(Icons.date_range_outlined, size: 20),
+                    label: const Text('期間で選ぶ'),
                   ),
+                ),
               ],
             ),
+            if (_days.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _days.length == 1
+                          ? '施工日 ${formatDate(_days.first)}'
+                          : '施工日 ${_days.length}日分　${formatWorkDays(_days)}',
+                      key: const Key('line-work-days-summary'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  TextButton(
+                    key: const Key('line-work-date-clear'),
+                    onPressed: () => setState(() => _days.clear()),
+                    child: const Text('全部消す'),
+                  ),
+                ],
+              ),
+              if (_days.length > 1)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final d in _days)
+                      InputChip(
+                        label: Text(formatShortDate(d)),
+                        visualDensity: VisualDensity.compact,
+                        onDeleted: () => setState(() => _days.remove(d)),
+                        deleteButtonTooltipMessage: 'この日を外す',
+                      ),
+                  ],
+                ),
+            ],
             const SizedBox(height: 12),
             TextField(
               key: const Key('line-detail'),
