@@ -213,9 +213,8 @@ class _EditorScreenState extends State<EditorScreen> {
       context,
       label: AppScope.of(context).lineLabel,
     );
-    final line = result?.line;
-    if (line == null) return;
-    _update(_doc.copyWith(lines: [..._doc.lines, line]));
+    if (result == null || result.lines.isEmpty) return;
+    _update(_doc.copyWith(lines: [..._doc.lines, ...result.lines]));
   }
 
   Future<void> _editLine(int index) async {
@@ -229,7 +228,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (result.delete) {
       lines.removeAt(index);
     } else {
-      lines[index] = result.line!;
+      lines.replaceRange(index, index + 1, result.lines);
     }
     _update(_doc.copyWith(lines: lines));
   }
@@ -562,6 +561,7 @@ class _LineRow extends StatelessWidget {
                         formatShortDate(line.worked!)
                       else if (line.workedDays.length > 1)
                         '${formatWorkDays(line.workedDays, short: true)}（${line.workedDays.length}日）',
+                      if (line.site.isNotEmpty) line.site,
                       if (line.detail.isNotEmpty) line.detail,
                       lineDetail(line),
                     ].join('・'),

@@ -1,15 +1,16 @@
 import '../format.dart';
 import '../models/models.dart';
 
-/// Joins lines for the same 現場 and the same work: same 現場名/品目,
-/// 施工内容, 単位, 単価 and 税率. Their 施工日 are merged (no duplicates) and the
-/// 数量 added up, so one 取引先's 請求書 shows one line per 現場. Lines that
+/// Optional tidy-up (never automatic): joins lines with the same 現場・住所
+/// and the same work — same 品目, 施工内容, 単位, 単価 and 税率 — into one line.
+/// Their 施工日 are merged (no duplicates) and the 数量 added up. Lines that
 /// differ in any of those stay separate, in their first position. Amounts
 /// never change: 数量×単価 of the joined line equals the sum of the parts.
 List<DocLine> combineLines(List<DocLine> lines) {
   String key(DocLine l) => [
     collapseWhitespace(l.name),
     collapseWhitespace(l.detail),
+    collapseWhitespace(l.site),
     collapseWhitespace(l.unit),
     l.unitPrice,
     l.taxRate.key,
@@ -48,6 +49,7 @@ List<DocLine> combineLines(List<DocLine> lines) {
         workDate: first,
         workDates: all,
         detail: group.first.detail,
+        site: group.first.site,
       ),
     );
   }

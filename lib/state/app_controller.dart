@@ -457,6 +457,9 @@ class AppController extends ChangeNotifier {
     if (line.detail.length > 40) {
       throw const InvalidInput('施工内容は40文字以内で入力してください。');
     }
+    if (line.site.length > 60) {
+      throw const InvalidInput('現場・住所は60文字以内で入力してください。');
+    }
     if (line.quantity <= 0 || line.quantity > 100000) {
       throw const InvalidInput('数量は0より大きく、100,000以下で入力してください。');
     }
@@ -629,7 +632,7 @@ class AppController extends ChangeNotifier {
       _validLine(line);
     }
     final updated = _withTitles(
-      target.copyWith(lines: combineLines([...target.lines, ...lines])),
+      target.copyWith(lines: [...target.lines, ...lines]),
       [title],
     );
     documents = [...documents]..[index] = updated;
@@ -690,7 +693,7 @@ class AppController extends ChangeNotifier {
         final c = a.issueDate.compareTo(b.issueDate);
         return c != 0 ? c : a.number.compareTo(b.number);
       });
-    final lines = combineLines([for (final d in ordered) ...d.lines]);
+    final lines = [for (final d in ordered) ...d.lines];
     final notes = <String>[];
     for (final d in ordered) {
       final n = d.note.trim();
@@ -713,6 +716,28 @@ class AppController extends ChangeNotifier {
     await repository.saveDocuments(documents);
     notifyListeners();
     return merged;
+  }
+
+  /// Line count after [combineSameSiteLines], or null when no two lines share
+  /// the same 現場・住所 and work.
+  int? combinedLineCount(String docId) {
+    final doc = documentById(docId);
+    if (doc == null) return null;
+    final n = combineLines(doc.lines).length;
+    return n < doc.lines.length ? n : null;
+  }
+
+  /// Joins lines with the same 現場・住所, 品目, 施工内容, 単位, 単価 and 税率
+  /// into one line with all their 施工日. Only when the user asks for it.
+  Future<Doc> combineSameSiteLines(String docId) async {
+    final index = documents.indexWhere((d) => d.id == docId);
+    if (index < 0) throw const InvalidInput('書類が見つかりません。');
+    final doc = documents[index];
+    final updated = doc.copyWith(lines: combineLines(doc.lines));
+    documents = [...documents]..[index] = updated;
+    await repository.saveDocuments(documents);
+    notifyListeners();
+    return updated;
   }
 
   Future<void> setStatus(String id, DocStatus status) async {

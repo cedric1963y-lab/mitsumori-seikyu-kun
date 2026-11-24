@@ -9,7 +9,8 @@ import 'package:mitsumori_seikyu/widgets/forms.dart';
 import 'support/harness.dart';
 
 DocLine day(String key, int qty, {String site = '港北区○○1-2 A邸'}) => DocLine(
-  name: site,
+  name: '常用',
+  site: site,
   quantity: qty.toDouble(),
   unit: '人工',
   unitPrice: 22000,
@@ -49,10 +50,10 @@ void main() {
 
     final merged = await c.mergeInvoices(first.id, [second.id]);
     expect(merged.number, first.number);
-    // Same 現場・same 単価: one line with all its days and the 数量 added up.
-    expect(merged.lines.length, 1);
-    expect(merged.lines.single.workDates, ['2026-10-05', '2026-10-06', '2026-10-07']);
-    expect(merged.lines.single.quantity, 5);
+    // Lines stay one per date (the usual way); nothing is joined unless asked.
+    expect(merged.lines.map((l) => l.workDate), ['2026-10-05', '2026-10-06', '2026-10-07']);
+    expect(merged.lines.map((l) => l.quantity), [2, 2, 1]);
+    expect(merged.lines.every((l) => l.site == '港北区○○1-2 A邸'), isTrue);
     expect(merged.note, '常用分');
     expect(c.totalsFor(merged).total, before);
     expect(c.documentById(second.id), isNull);
@@ -63,7 +64,8 @@ void main() {
     c.dispose();
 
     final again = await openController(directory, premium: true);
-    expect(again.documentById(first.id)!.lines.single.workedDays.length, 3);
+    expect(again.documentById(first.id)!.lines.length, 3);
+    expect(again.documentById(first.id)!.lines.first.site, '港北区○○1-2 A邸');
     expect(again.documentById(second.id), isNull);
     again.dispose();
   });
@@ -86,9 +88,7 @@ void main() {
     final draft = c.newDraft(DocKind.invoice).copyWith(customerId: a.id, customerName: a.name, lines: [day('2026-10-08', 1)]);
     expect(c.openInvoicesLike(draft).map((d) => d.id), [first.id]);
     final updated = await c.addLinesToInvoice(first.id, draft.lines);
-    expect(updated.lines.length, 1);
-    expect(updated.lines.single.workDates, ['2026-10-05', '2026-10-08']);
-    expect(updated.lines.single.quantity, 3);
+    expect(updated.lines.map((l) => l.workDate), ['2026-10-05', '2026-10-08']);
     expect(c.documents.where((d) => d.isInvoice).length, 1);
 
     await c.setStatus(first.id, DocStatus.sent);
@@ -128,7 +128,8 @@ void main() {
     final y = await c.saveDocument(c.newDraft(DocKind.invoice).copyWith(
         customerId: a.id, title: '○○市□□ B邸', lines: [day('2026-10-06', 1, site: '○○市□□3-4 B邸')]));
     final m = await c.mergeInvoices(x.id, [y.id]);
-    expect(m.lines.map((l) => l.name), ['○○市△△1-2 A邸', '○○市□□3-4 B邸']);
+    expect(m.lines.map((l) => l.site), ['○○市△△1-2 A邸', '○○市□□3-4 B邸']);
+    expect(m.lines.map((l) => l.workDate), ['2026-10-05', '2026-10-06']);
     expect(m.title, '○○市△△ A邸・○○市□□ B邸');
     c.dispose();
   });
@@ -143,11 +144,11 @@ void main() {
     final m = await c.addLinesToInvoice(x.id, [day('2026-10-06', 1)], title: t2);
     expect(m.title, t1);
     expect(m.note, contains('件名：$t2'));
-    expect(m.lines.single.workedDays.length, 2);
+    expect(m.lines.length, 2);
     c.dispose();
   });
 
-  test('different 現場, 単価 or 施工内容 stay separate lines; PDF renders', () async {
+  test('optional 行をまとめる joins only same 住所 + same work; PDF renders', () async {
     final c = await openController(directory, premium: true);
     final a = await c.addCustomer(name: '山田工務店', address: '');
     final x = await invoice(c, a, [
@@ -161,14 +162,19 @@ void main() {
       day('2026-10-09', 2, site: '○○市□□3-4'),
     ]);
     final total = c.totalsFor(x).total + c.totalsFor(y).total;
-    final m = await c.mergeInvoices(x.id, [y.id]);
+    final merged = await c.mergeInvoices(x.id, [y.id]);
+    expect(merged.lines.length, 6, reason: 'merge keeps every dated line');
+    expect((await c.pdfBytesFor(merged)).length, greaterThan(1000));
+    expect(c.combinedLineCount(x.id), 4);
+    final m = await c.combineSameSiteLines(x.id);
     expect(m.lines.length, 4);
+    expect(c.combinedLineCount(x.id), isNull);
     final a1 = m.lines[0];
-    expect(a1.name, '○○市△△1-2');
+    expect(a1.site, '○○市△△1-2');
     expect(a1.workDates, ['2026-10-05', '2026-10-07']);
     expect(a1.quantity, 3);
     final b1 = m.lines[1];
-    expect(b1.name, '○○市□□3-4');
+    expect(b1.site, '○○市□□3-4');
     expect(b1.workDates, ['2026-10-06', '2026-10-09']);
     expect(b1.quantity, 3);
     expect(m.lines[2].unitPrice, 25000);

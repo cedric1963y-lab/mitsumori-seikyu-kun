@@ -36,7 +36,7 @@ Future<AddChoice?> askAddToExisting(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '$customerName あての未送付の請求書があります。今回の明細を、その請求書に追加できます（1枚の請求書にまとまり、同じ現場・同じ単価の行は施工日が1行に合わさります）。',
+              '$customerName あての未送付の請求書があります。今回の明細を、その請求書に追加できます（1枚の請求書にまとまり、日付・現場ごとの行はそのまま残ります）。',
               style: const TextStyle(height: 1.45),
             ),
             const SizedBox(height: 12),
@@ -127,7 +127,7 @@ class _MergeSheetState extends State<_MergeSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              '選んだ請求書の明細を ${widget.keep.number} に移して、1枚にします。移したあとの請求書は一覧から消えます。同じ現場・同じ単価の行は1行にまとまり、施工日と数量が合わさります（金額は変わりません）。',
+              '選んだ請求書の明細を ${widget.keep.number} に移して、1枚にします。移したあとの請求書は一覧から消えます。明細の行は日付・現場・住所ごとにそのまま残ります（金額は変わりません）。',
               style: const TextStyle(height: 1.45),
             ),
             const SizedBox(height: 8),

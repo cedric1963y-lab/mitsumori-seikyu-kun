@@ -294,13 +294,14 @@ pw.Widget _table(Doc doc, String lineHeading) {
   final hasDate = doc.lines.any((l) => l.worked != null);
   final multiDay = doc.lines.any((l) => l.workedDays.length > 1);
   final hasDetail = doc.lines.any((l) => l.detail.isNotEmpty);
+  final hasSite = doc.lines.any((l) => l.site.isNotEmpty);
+  final nameWidth = hasDetail
+      ? (multiDay ? 2.75 : 3.4)
+      : (hasDate ? (multiDay ? 3.55 : 4.2) : 5.2);
   final widths = <pw.TableColumnWidth>[
     if (hasDate) pw.FlexColumnWidth(multiDay ? 2.1 : 1.45),
-    pw.FlexColumnWidth(
-      hasDetail
-          ? (multiDay ? 2.75 : 3.4)
-          : (hasDate ? (multiDay ? 3.55 : 4.2) : 5.2),
-    ),
+    if (hasSite) const pw.FlexColumnWidth(2.6),
+    pw.FlexColumnWidth(hasSite ? (nameWidth - 1.4).clamp(2.0, 5.2) : nameWidth),
     if (hasDetail) const pw.FlexColumnWidth(2.2),
     const pw.FlexColumnWidth(1.1),
     const pw.FlexColumnWidth(0.9),
@@ -313,6 +314,7 @@ pw.Widget _table(Doc doc, String lineHeading) {
       decoration: const pw.BoxDecoration(color: _head),
       children: [
         if (hasDate) _cell('月日', header: true, align: pw.TextAlign.center),
+        if (hasSite) _cell('現場・住所', header: true),
         _cell(lineHeading, header: true),
         if (hasDetail) _cell('施工内容', header: true),
         _cell('数量', header: true, align: pw.TextAlign.right),
@@ -329,6 +331,7 @@ pw.Widget _table(Doc doc, String lineHeading) {
               formatWorkDays(l.workedDays, short: l.workedDays.length > 1),
               align: pw.TextAlign.center,
             ),
+          if (hasSite) _cell(l.site),
           _cell(name(l)),
           if (hasDetail) _cell(l.detail),
           _cell(formatQuantity(l.quantity), align: pw.TextAlign.right),

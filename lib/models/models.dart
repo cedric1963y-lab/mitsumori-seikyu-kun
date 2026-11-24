@@ -246,6 +246,7 @@ class DocLine {
     this.workDate,
     this.workDates = const [],
     this.detail = '',
+    this.site = '',
   });
 
   final String name;
@@ -265,6 +266,11 @@ class DocLine {
   /// 施工内容・備考 for this line, or ''. Optional; when any line has one, the
   /// PDF adds a 施工内容 column.
   final String detail;
+
+  /// 現場・住所 for this line, or ''. Optional; when any line has one, the PDF
+  /// adds a 現場・住所 column. One 取引先 often works at a different address
+  /// each day, so it lives on the line, not on the document.
+  final String site;
 
   /// 数量 × 単価, rounded to the yen per line.
   int get amount => (quantity * unitPrice).round();
@@ -309,6 +315,7 @@ class DocLine {
     List<String>? workDates,
     bool clearWorkDate = false,
     String? detail,
+    String? site,
   }) {
     return DocLine(
       name: name ?? this.name,
@@ -321,6 +328,7 @@ class DocLine {
           ? const []
           : (workDates ?? (workDate != null ? const [] : this.workDates)),
       detail: detail ?? this.detail,
+      site: site ?? this.site,
     );
   }
 
@@ -333,6 +341,7 @@ class DocLine {
     'workDate': ?workDate,
     if (workDates.length > 1) 'workDates': workDates,
     if (detail.isNotEmpty) 'detail': detail,
+    if (site.isNotEmpty) 'site': site,
   };
 
   static DocLine fromJson(Map<String, dynamic> json) {
@@ -353,6 +362,7 @@ class DocLine {
           : (date is String && date.isNotEmpty ? date : null),
       workDates: dates.length > 1 ? dates : const [],
       detail: _string(json['detail']),
+      site: _string(json['site']),
     );
   }
 

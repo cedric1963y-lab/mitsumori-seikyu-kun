@@ -125,6 +125,23 @@ class _DocumentScreenState extends State<DocumentScreen> {
     );
   }
 
+  Future<void> _combine(Doc doc, int after) async {
+    final controller = AppScope.of(context);
+    final ok = await confirmAction(
+      context,
+      title: '行をまとめますか？',
+      body:
+          '現場・住所、品目、施工内容、単価がすべて同じ行を1行にして、日付を並べて書きます（${doc.lines.length}行→$after行）。金額は変わりません。現場が違う行はそのままです。',
+      confirmLabel: 'まとめる',
+      destructive: false,
+    );
+    if (!ok || !mounted) return;
+    final done = await guard(context, () async {
+      await controller.combineSameSiteLines(doc.id);
+    });
+    if (done && mounted) showSnack(context, '行をまとめました。');
+  }
+
   Future<void> _merge(Doc doc) async {
     final controller = AppScope.of(context);
     final candidates = controller.mergeCandidates(doc.id);
@@ -299,12 +316,31 @@ class _DocumentScreenState extends State<DocumentScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
+          FilledButton.icon(
             key: const Key('add-lines'),
             onPressed: () => _addLines(doc),
-            icon: const Icon(Icons.edit_calendar_outlined),
-            label: Text('この${doc.kind.label}に日付・明細を追加'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              minimumSize: const Size.fromHeight(56),
+              textStyle: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            icon: const Icon(Icons.add_circle_outline),
+            label: Text('この${doc.kind.label}に日付・現場の行を追加'),
           ),
+          if (controller.combinedLineCount(doc.id) case final n?) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const Key('combine-lines'),
+              onPressed: () => _combine(doc, n),
+              icon: const Icon(Icons.compress),
+              label: Text(
+                '同じ現場・品目の行を1行にまとめる（${doc.lines.length}行→$n行）',
+              ),
+            ),
+          ],
           if (doc.isUnpaid && controller.mergeCandidates(doc.id).isNotEmpty) ...[
             const SizedBox(height: 10),
             OutlinedButton.icon(

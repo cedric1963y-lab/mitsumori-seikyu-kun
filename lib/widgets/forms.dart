@@ -45,12 +45,17 @@ class ItemDraft {
 }
 
 /// Result of the line sheet. [delete] is true when the user removed the line.
+/// A new line with several 施工日 can come back as one line per day
+/// ([lines] has more than one entry).
 class LineResult {
-  const LineResult.save(DocLine this.line) : delete = false;
-  const LineResult.delete() : line = null, delete = true;
+  LineResult.save(DocLine line) : lines = [line], delete = false;
+  const LineResult.saveAll(this.lines) : delete = false;
+  const LineResult.delete() : lines = const [], delete = true;
 
-  final DocLine? line;
+  final List<DocLine> lines;
   final bool delete;
+
+  DocLine? get line => lines.isEmpty ? null : lines.first;
 }
 
 class FormDialog extends StatelessWidget {
@@ -440,11 +445,21 @@ class _LineSheetState extends State<_LineSheet> {
   late final _detail = TextEditingController(
     text: widget.initial?.detail ?? '',
   );
+  /// 現場・住所 of this line. Starts empty on a new line.
+  late final _site = TextEditingController(text: widget.initial?.site ?? '');
+
+  /// New line with several 施工日: one line per day (the usual way), or one
+  /// line holding every day.
+  bool _splitDays = true;
+
+  bool get _splitting =>
+      widget.initial == null && _splitDays && _days.length > 1;
   String? _error;
 
   @override
   void dispose() {
     _detail.dispose();
+    _site.dispose();
     _name.dispose();
     _quantity.dispose();
     _unit.dispose();
@@ -466,6 +481,8 @@ class _LineSheetState extends State<_LineSheet> {
       error = widget.label == LineLabel.item
           ? '品目名を入力してください。'
           : '${widget.label.heading}を入力してください。';
+    } else if (collapseWhitespace(_site.text).length > 60) {
+      error = '現場・住所は60文字以内で入力してください。';
     } else if (collapseWhitespace(_detail.text).length > 40) {
       error = '施工内容は40文字以内で入力してください。';
     } else if (quantity == null || quantity <= 0) {
@@ -479,21 +496,28 @@ class _LineSheetState extends State<_LineSheet> {
       setState(() => _error = error);
       return;
     }
-    final dates = DocLine.datesFrom(_days);
+    DocLine line(Iterable<DateTime> days) {
+      final dates = DocLine.datesFrom(days);
+      return DocLine(
+        name: collapseWhitespace(_name.text),
+        quantity: quantity!,
+        unit: collapseWhitespace(_unit.text),
+        unitPrice: price!,
+        taxRate: _rate,
+        workDate: dates.$1,
+        workDates: dates.$2,
+        detail: collapseWhitespace(_detail.text),
+        site: collapseWhitespace(_site.text),
+      );
+    }
+
     Navigator.pop(
       context,
-      LineResult.save(
-        DocLine(
-          name: collapseWhitespace(_name.text),
-          quantity: quantity!,
-          unit: collapseWhitespace(_unit.text),
-          unitPrice: price!,
-          taxRate: _rate,
-          workDate: dates.$1,
-          workDates: dates.$2,
-          detail: collapseWhitespace(_detail.text),
-        ),
-      ),
+      _splitting
+          ? LineResult.saveAll([
+              for (final d in [..._days]..sort()) line([d]),
+            ])
+          : LineResult.save(line(_days)),
     );
   }
 
@@ -574,6 +598,15 @@ class _LineSheetState extends State<_LineSheet> {
               decoration: InputDecoration(labelText: widget.label.heading),
             ),
             const SizedBox(height: 12),
+            TextField(
+              key: const Key('line-site'),
+              controller: _site,
+              decoration: const InputDecoration(
+                labelText: '現場・住所（任意）',
+                hintText: '例: ○○市△△1-2',
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -635,6 +668,19 @@ class _LineSheetState extends State<_LineSheet> {
                       ),
                   ],
                 ),
+              if (widget.initial == null && _days.length > 1)
+                SwitchListTile(
+                  key: const Key('line-split-days'),
+                  contentPadding: EdgeInsets.zero,
+                  value: _splitDays,
+                  onChanged: (v) => setState(() => _splitDays = v),
+                  title: const Text('日付ごとに1行ずつ分ける'),
+                  subtitle: Text(
+                    _splitDays
+                        ? '${_days.length}行になります。数量は1日あたりで入れてください'
+                        : '1行に${_days.length}日分の日付をまとめて書きます',
+                  ),
+                ),
             ],
             const SizedBox(height: 12),
             TextField(
@@ -663,7 +709,9 @@ class _LineSheetState extends State<_LineSheet> {
                       decimal: true,
                     ),
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(labelText: '数量'),
+                    decoration: InputDecoration(
+                      labelText: _splitting ? '数量（1日あたり）' : '数量',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -704,7 +752,9 @@ class _LineSheetState extends State<_LineSheet> {
             ),
             const SizedBox(height: 12),
             Text(
-              '金額 ${formatYen((quantity * price).round())}（税抜）',
+              _splitting
+                  ? '金額 ${formatYen((quantity * price).round())} × ${_days.length}行（税抜）'
+                  : '金額 ${formatYen((quantity * price).round())}（税抜）',
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
