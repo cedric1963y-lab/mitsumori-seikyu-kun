@@ -94,7 +94,11 @@ class _EditorScreenState extends State<EditorScreen> {
         if (target != null) {
           Doc? updated;
           final ok = await guard(context, () async {
-            updated = await controller.addLinesToInvoice(target.id, draft.lines);
+            updated = await controller.addLinesToInvoice(
+              target.id,
+              draft.lines,
+              title: draft.title,
+            );
           });
           if (!mounted) return;
           setState(() => _saving = false);

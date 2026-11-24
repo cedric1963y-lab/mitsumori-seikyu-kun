@@ -7,6 +7,7 @@ import '../data/repository.dart';
 import '../errors.dart';
 import '../format.dart';
 import '../ids.dart';
+import '../logic/combine_lines.dart';
 import '../logic/csv.dart';
 import '../logic/totals.dart';
 import '../models/models.dart';
@@ -589,7 +590,36 @@ class AppController extends ChangeNotifier {
   }
 
   /// Adds [lines] to the end of the 請求書 [invoiceId] and returns it.
-  Future<Doc> addLinesToInvoice(String invoiceId, List<DocLine> lines) async {
+  /// Keeps every 件名 (often the 現場) when 請求書 are combined: joined with
+  /// 「・」 when it fits the 40-character 件名, otherwise the extra ones go to
+  /// 備考 as 「件名：…」.
+  Doc _withTitles(Doc doc, Iterable<String> extra) {
+    final titles = <String>[];
+    for (final t in [doc.title, ...extra]) {
+      final v = collapseWhitespace(t);
+      if (v.isNotEmpty && !titles.contains(v)) titles.add(v);
+    }
+    if (titles.length <= 1) {
+      return doc.copyWith(title: titles.isEmpty ? '' : titles.first);
+    }
+    final joined = titles.join('・');
+    if (joined.length <= 40) return doc.copyWith(title: joined);
+    final keepTitle = doc.title.trim().isNotEmpty
+        ? collapseWhitespace(doc.title)
+        : titles.first;
+    final notes = [
+      if (doc.note.trim().isNotEmpty) doc.note.trim(),
+      for (final t in titles)
+        if (t != keepTitle && !doc.note.contains('件名：$t')) '件名：$t',
+    ];
+    return doc.copyWith(title: keepTitle, note: notes.join('\n'));
+  }
+
+  Future<Doc> addLinesToInvoice(
+    String invoiceId,
+    List<DocLine> lines, {
+    String title = '',
+  }) async {
     final index = documents.indexWhere((d) => d.id == invoiceId);
     if (index < 0) throw const InvalidInput('請求書が見つかりません。');
     final target = documents[index];
@@ -598,7 +628,10 @@ class AppController extends ChangeNotifier {
     for (final line in lines) {
       _validLine(line);
     }
-    final updated = target.copyWith(lines: [...target.lines, ...lines]);
+    final updated = _withTitles(
+      target.copyWith(lines: combineLines([...target.lines, ...lines])),
+      [title],
+    );
     documents = [...documents]..[index] = updated;
     await repository.saveDocuments(documents);
     notifyListeners();
@@ -616,7 +649,11 @@ class AppController extends ChangeNotifier {
         documentById(estimate.convertedId!) != null) {
       throw const InvalidInput('この見積書はもう請求書にしてあります。');
     }
-    final invoice = await addLinesToInvoice(invoiceId, estimate.lines);
+    final invoice = await addLinesToInvoice(
+      invoiceId,
+      estimate.lines,
+      title: estimate.title,
+    );
     documents = [
       for (final d in documents)
         if (d.id == estimate.id)
@@ -653,24 +690,16 @@ class AppController extends ChangeNotifier {
         final c = a.issueDate.compareTo(b.issueDate);
         return c != 0 ? c : a.number.compareTo(b.number);
       });
-    final lines = [for (final d in ordered) ...d.lines];
+    final lines = combineLines([for (final d in ordered) ...d.lines]);
     final notes = <String>[];
     for (final d in ordered) {
       final n = d.note.trim();
       if (n.isNotEmpty && !notes.contains(n)) notes.add(n);
     }
-    final titles = <String>[];
-    for (final d in ordered) {
-      final t = d.title.trim();
-      if (t.isNotEmpty && !titles.contains(t)) titles.add(t);
-    }
     final removed = {for (final d in others) d.id};
-    final merged = keep.copyWith(
-      lines: lines,
-      note: notes.join('\n'),
-      title: keep.title.isNotEmpty
-          ? keep.title
-          : (titles.isEmpty ? '' : titles.first),
+    final merged = _withTitles(
+      keep.copyWith(lines: lines, note: notes.join('\n')),
+      [for (final d in ordered) d.title],
     );
     documents = [
       for (final d in documents)
