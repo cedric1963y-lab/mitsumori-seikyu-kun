@@ -514,17 +514,14 @@ class _LineSheetState extends State<_LineSheet> {
   }
 
   Future<void> _pickWorkDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _days.isEmpty
-          ? DateTime.now()
-          : DateTime(_days.last.year, _days.last.month, _days.last.day + 1),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      helpText: _days.isEmpty ? '施工日を選ぶ' : '施工日を追加',
-    );
+    final picked = await showMultiDayPicker(context, initial: _days);
     if (picked == null) return;
-    _addDays([picked]);
+    setState(() {
+      _days
+        ..clear()
+        ..addAll(picked);
+    });
+    _addDays(const []);
   }
 
   Future<void> _pickWorkRange() async {
@@ -587,7 +584,7 @@ class _LineSheetState extends State<_LineSheet> {
                       minimumSize: const Size(64, 48),
                     ),
                     icon: const Icon(Icons.event_outlined, size: 20),
-                    label: Text(_days.isEmpty ? '施工日（任意）' : '日付を追加'),
+                    label: Text(_days.isEmpty ? '施工日を選ぶ（複数OK）' : '日付を選び直す'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -807,6 +804,162 @@ class _QuantityDialogState extends State<_QuantityDialog> {
           decoration: InputDecoration(labelText: '数量', suffixText: item.unit),
         ),
       ],
+    );
+  }
+}
+
+
+/// Calendar where several days can be tapped on and off (施工日).
+/// Returns the picked days sorted, or null when cancelled.
+Future<List<DateTime>?> showMultiDayPicker(
+  BuildContext context, {
+  List<DateTime> initial = const [],
+}) {
+  return showDialog<List<DateTime>>(
+    context: context,
+    builder: (_) => _MultiDayDialog(initial: initial),
+  );
+}
+
+class _MultiDayDialog extends StatefulWidget {
+  const _MultiDayDialog({required this.initial});
+
+  final List<DateTime> initial;
+
+  @override
+  State<_MultiDayDialog> createState() => _MultiDayDialogState();
+}
+
+class _MultiDayDialogState extends State<_MultiDayDialog> {
+  late final Set<DateTime> _picked = {
+    for (final d in widget.initial) dateOnly(d),
+  };
+  late DateTime _month = firstOfMonth(
+    widget.initial.isEmpty ? DateTime.now() : widget.initial.last,
+  );
+
+  static const _heads = ['日', '月', '火', '水', '木', '金', '土'];
+
+  @override
+  Widget build(BuildContext context) {
+    final first = _month;
+    final days = DateTime(first.year, first.month + 1, 0).day;
+    final lead = first.weekday % 7; // 日曜はじまり
+    final today = dateOnly(DateTime.now());
+    final cells = <Widget>[
+      for (final h in _heads)
+        Center(
+          child: Text(
+            h,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: h == '日'
+                  ? AppColors.danger
+                  : (h == '土' ? Colors.blue : AppColors.muted),
+            ),
+          ),
+        ),
+      for (var i = 0; i < lead; i++) const SizedBox.shrink(),
+      for (var d = 1; d <= days; d++) _day(DateTime(first.year, first.month, d), today),
+    ];
+    return AlertDialog(
+      key: const Key('multi-day-dialog'),
+      titlePadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      title: Row(
+        children: [
+          IconButton(
+            key: const Key('multi-day-prev'),
+            tooltip: '前の月',
+            onPressed: () => setState(() => _month = addMonths(_month, -1)),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Text(
+              formatMonth(_month),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+          ),
+          IconButton(
+            key: const Key('multi-day-next'),
+            tooltip: '次の月',
+            onPressed: () => setState(() => _month = addMonths(_month, 1)),
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '働いた日をタップ（何日でも選べます）',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+            ),
+            const SizedBox(height: 6),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              children: cells,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _picked.isEmpty
+                  ? 'まだ選んでいません'
+                  : '${_picked.length}日 選択中　${formatWorkDays(_picked.toList(), short: true)}',
+              key: const Key('multi-day-count'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton(
+          key: const Key('multi-day-done'),
+          onPressed: () =>
+              Navigator.pop(context, _picked.toList()..sort()),
+          child: const Text('決定'),
+        ),
+      ],
+    );
+  }
+
+  Widget _day(DateTime d, DateTime today) {
+    final on = _picked.contains(d);
+    return InkWell(
+      key: Key('multi-day-${dayKey(d)}'),
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => setState(() => on ? _picked.remove(d) : _picked.add(d)),
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: on ? AppColors.orange : null,
+          shape: BoxShape.circle,
+          border: d == today && !on
+              ? Border.all(color: AppColors.slate)
+              : null,
+        ),
+        child: Text(
+          '${d.day}',
+          style: TextStyle(
+            fontWeight: on ? FontWeight.w800 : FontWeight.w500,
+            color: on ? Colors.white : AppColors.ink,
+          ),
+        ),
+      ),
     );
   }
 }

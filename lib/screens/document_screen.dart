@@ -13,6 +13,7 @@ import '../services/share_service.dart';
 import '../state/app_controller.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/invoice_merge.dart';
 import 'editor_screen.dart';
 
 /// One document: A4 PDF preview, share, status, edit, 見積→請求.
@@ -84,17 +85,70 @@ class _DocumentScreenState extends State<DocumentScreen> {
 
   Future<void> _convert(Doc doc) async {
     final controller = AppScope.of(context);
+    final open = controller.openInvoicesLike(doc, month: controller.now);
+    Doc? target;
+    if (open.isNotEmpty) {
+      final choice = await askAddToExisting(
+        context,
+        controller,
+        open,
+        customerName: '${doc.customerName} ${doc.honorific}'.trim(),
+      );
+      if (choice == null || !mounted) return;
+      target = choice.invoice;
+    }
     Doc? invoice;
     await guard(context, () async {
-      invoice = await controller.convertToInvoice(doc.id);
+      invoice = target == null
+          ? await controller.convertToInvoice(doc.id)
+          : await controller.addEstimateToInvoice(doc.id, target.id);
     });
     if (invoice == null || !mounted) return;
-    showSnack(context, '請求書 ${invoice!.number} を作りました。');
+    showSnack(
+      context,
+      target == null
+          ? '請求書 ${invoice!.number} を作りました。'
+          : '${invoice!.number} に明細を追加しました。',
+    );
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => DocumentScreen(documentId: invoice!.id),
       ),
     );
+  }
+
+  void _addLines(Doc doc) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EditorScreen(initial: doc, addLine: true),
+      ),
+    );
+  }
+
+  Future<void> _merge(Doc doc) async {
+    final controller = AppScope.of(context);
+    final candidates = controller.mergeCandidates(doc.id);
+    if (candidates.isEmpty) return;
+    final picked = await pickInvoicesToMerge(context, controller, doc, candidates);
+    if (picked == null || picked.isEmpty || !mounted) return;
+    final numbers = [
+      for (final d in candidates)
+        if (picked.contains(d.id)) d.number,
+    ].join('・');
+    final ok = await confirmAction(
+      context,
+      title: '請求書をまとめますか？',
+      body: '$numbers の明細を ${doc.number} に移して、$numbers は削除します。明細は消えません。',
+      confirmLabel: 'まとめる',
+      destructive: false,
+    );
+    if (!ok || !mounted) return;
+    Doc? merged;
+    await guard(context, () async {
+      merged = await controller.mergeInvoices(doc.id, picked);
+    });
+    if (merged == null || !mounted) return;
+    showSnack(context, '${merged!.number} にまとめました（明細${merged!.lines.length}行）。');
   }
 
   void _open(String id) {
@@ -244,6 +298,24 @@ class _DocumentScreenState extends State<DocumentScreen> {
               label: const Text('PDFを送る（LINE・メールなど）'),
             ),
           ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const Key('add-lines'),
+            onPressed: () => _addLines(doc),
+            icon: const Icon(Icons.edit_calendar_outlined),
+            label: Text('この${doc.kind.label}に日付・明細を追加'),
+          ),
+          if (doc.isUnpaid && controller.mergeCandidates(doc.id).isNotEmpty) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const Key('merge-invoices'),
+              onPressed: () => _merge(doc),
+              icon: const Icon(Icons.call_merge),
+              label: Text(
+                '同じ取引先の請求書をまとめる（${controller.mergeCandidates(doc.id).length}件）',
+              ),
+            ),
+          ],
           if (estimate) ...[
             const SizedBox(height: 10),
             if (converted != null)

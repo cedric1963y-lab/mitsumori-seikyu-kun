@@ -546,6 +546,146 @@ class AppController extends ChangeNotifier {
     return invoice;
   }
 
+  // ------------------------------------------------------- 請求書をまとめる
+
+  bool _sameCustomer(Doc a, Doc b) {
+    if (a.customerId.isNotEmpty && b.customerId.isNotEmpty) {
+      return a.customerId == b.customerId;
+    }
+    return collapseWhitespace(a.customerName) ==
+        collapseWhitespace(b.customerName);
+  }
+
+  /// Other 未入金 請求書 of the same 取引先 that [invoiceId] can absorb.
+  /// Oldest first.
+  List<Doc> mergeCandidates(String invoiceId) {
+    final doc = documentById(invoiceId);
+    if (doc == null || !doc.isInvoice) return const [];
+    final list = [
+      for (final d in documents)
+        if (d.id != doc.id && d.isUnpaid && _sameCustomer(d, doc)) d,
+    ]..sort((a, b) {
+        final c = a.issueDate.compareTo(b.issueDate);
+        return c != 0 ? c : a.number.compareTo(b.number);
+      });
+    return list;
+  }
+
+  /// An 未送付 請求書 of the same 取引先 issued in the same month as [draft],
+  /// which a new 請求書 could be added to instead. Newest first.
+  /// [month] defaults to the draft's 発行日 (pass today for 見積書→請求書).
+  List<Doc> openInvoicesLike(Doc draft, {DateTime? month}) {
+    final issued = month ?? draft.issued;
+    final list = [
+      for (final d in documents)
+        if (d.id != draft.id &&
+            d.isInvoice &&
+            d.status == DocStatus.unsent &&
+            isSameMonth(d.issued, issued) &&
+            _sameCustomer(d, draft))
+          d,
+    ]..sort((a, b) => b.number.compareTo(a.number));
+    return list;
+  }
+
+  /// Adds [lines] to the end of the 請求書 [invoiceId] and returns it.
+  Future<Doc> addLinesToInvoice(String invoiceId, List<DocLine> lines) async {
+    final index = documents.indexWhere((d) => d.id == invoiceId);
+    if (index < 0) throw const InvalidInput('請求書が見つかりません。');
+    final target = documents[index];
+    if (!target.isInvoice) throw const InvalidInput('請求書が見つかりません。');
+    if (lines.isEmpty) throw const InvalidInput('明細を1行以上追加してください。');
+    for (final line in lines) {
+      _validLine(line);
+    }
+    final updated = target.copyWith(lines: [...target.lines, ...lines]);
+    documents = [...documents]..[index] = updated;
+    await repository.saveDocuments(documents);
+    notifyListeners();
+    return updated;
+  }
+
+  /// 見積書 -> an existing 請求書: its lines are added to [invoiceId] and the
+  /// 見積書 links to it, as [convertToInvoice] would.
+  Future<Doc> addEstimateToInvoice(String estimateId, String invoiceId) async {
+    final estimate = documentById(estimateId);
+    if (estimate == null || estimate.kind != DocKind.estimate) {
+      throw const InvalidInput('見積書が見つかりません。');
+    }
+    if (estimate.convertedId != null &&
+        documentById(estimate.convertedId!) != null) {
+      throw const InvalidInput('この見積書はもう請求書にしてあります。');
+    }
+    final invoice = await addLinesToInvoice(invoiceId, estimate.lines);
+    documents = [
+      for (final d in documents)
+        if (d.id == estimate.id)
+          d.copyWith(
+            convertedId: invoice.id,
+            status: d.status == DocStatus.unsent ? DocStatus.sent : d.status,
+          )
+        else
+          d,
+    ];
+    await repository.saveDocuments(documents);
+    notifyListeners();
+    return invoice;
+  }
+
+  /// Moves every line of [otherIds] into [keepId] (in issue order), keeps
+  /// [keepId]'s number, then removes the others. Links from 見積書 to a
+  /// removed 請求書 now point at [keepId]. Nothing is lost: notes that differ
+  /// are joined.
+  Future<Doc> mergeInvoices(String keepId, List<String> otherIds) async {
+    final keep = documentById(keepId);
+    if (keep == null || !keep.isInvoice) {
+      throw const InvalidInput('請求書が見つかりません。');
+    }
+    final allowed = {for (final d in mergeCandidates(keepId)) d.id};
+    final others = [
+      for (final d in mergeCandidates(keepId))
+        if (otherIds.contains(d.id)) d,
+    ];
+    if (others.isEmpty || otherIds.any((id) => !allowed.contains(id))) {
+      throw const InvalidInput('まとめる請求書を選んでください。');
+    }
+    final ordered = [keep, ...others]..sort((a, b) {
+        final c = a.issueDate.compareTo(b.issueDate);
+        return c != 0 ? c : a.number.compareTo(b.number);
+      });
+    final lines = [for (final d in ordered) ...d.lines];
+    final notes = <String>[];
+    for (final d in ordered) {
+      final n = d.note.trim();
+      if (n.isNotEmpty && !notes.contains(n)) notes.add(n);
+    }
+    final titles = <String>[];
+    for (final d in ordered) {
+      final t = d.title.trim();
+      if (t.isNotEmpty && !titles.contains(t)) titles.add(t);
+    }
+    final removed = {for (final d in others) d.id};
+    final merged = keep.copyWith(
+      lines: lines,
+      note: notes.join('\n'),
+      title: keep.title.isNotEmpty
+          ? keep.title
+          : (titles.isEmpty ? '' : titles.first),
+    );
+    documents = [
+      for (final d in documents)
+        if (d.id == keep.id)
+          merged
+        else if (!removed.contains(d.id))
+          (d.convertedId != null && removed.contains(d.convertedId))
+              ? d.copyWith(convertedId: keep.id)
+              : d,
+    ];
+    await repository.saveDocuments(documents);
+    notifyListeners();
+    return merged;
+  }
+
   Future<void> setStatus(String id, DocStatus status) async {
     final index = documents.indexWhere((d) => d.id == id);
     if (index < 0) throw const InvalidInput('書類が見つかりません。');

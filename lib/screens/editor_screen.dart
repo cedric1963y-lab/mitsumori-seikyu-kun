@@ -7,17 +7,26 @@ import '../models/models.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/forms.dart';
+import '../widgets/invoice_merge.dart';
 import 'document_screen.dart';
 
 /// Creates or edits a 見積書 / 請求書. [initial] with an empty id is a new
 /// draft from [AppController.newDraft].
 class EditorScreen extends StatefulWidget {
-  const EditorScreen({required this.initial, this.openLine, super.key});
+  const EditorScreen({
+    required this.initial,
+    this.openLine,
+    this.addLine = false,
+    super.key,
+  });
 
   final Doc initial;
 
   /// Debug screenshots only: opens this line's edit sheet on start.
   final int? openLine;
+
+  /// Opens the 明細を追加 sheet right away (「日付・明細を追加」).
+  final bool addLine;
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -41,6 +50,11 @@ class _EditorScreenState extends State<EditorScreen> {
         if (mounted) _editLine(line);
       });
     }
+    if (widget.addLine) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _addFree();
+      });
+    }
   }
 
   @override
@@ -62,6 +76,40 @@ class _EditorScreenState extends State<EditorScreen> {
     final controller = AppScope.of(context);
     setState(() => _saving = true);
     final draft = _doc.copyWith(title: _title.text, note: _note.text);
+    if (_isNew && draft.isInvoice && draft.lines.isNotEmpty) {
+      final open = controller.openInvoicesLike(draft);
+      if (open.isNotEmpty) {
+        final choice = await askAddToExisting(
+          context,
+          controller,
+          open,
+          customerName: '${draft.customerName} ${draft.honorific}'.trim(),
+        );
+        if (!mounted) return;
+        if (choice == null) {
+          setState(() => _saving = false);
+          return;
+        }
+        final target = choice.invoice;
+        if (target != null) {
+          Doc? updated;
+          final ok = await guard(context, () async {
+            updated = await controller.addLinesToInvoice(target.id, draft.lines);
+          });
+          if (!mounted) return;
+          setState(() => _saving = false);
+          if (!ok || updated == null) return;
+          _dirty = false;
+          showSnack(context, '${updated!.number} に明細を追加しました。');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => DocumentScreen(documentId: updated!.id),
+            ),
+          );
+          return;
+        }
+      }
+    }
     Doc? saved;
     final ok = await guard(context, () async {
       saved = await controller.saveDocument(draft);
