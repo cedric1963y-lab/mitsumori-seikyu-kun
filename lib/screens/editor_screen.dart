@@ -9,6 +9,7 @@ import '../widgets/common.dart';
 import '../widgets/forms.dart';
 import '../widgets/invoice_merge.dart';
 import 'document_screen.dart';
+import '../widgets/help_button.dart';
 
 /// Creates or edits a 見積書 / 請求書. [initial] with an empty id is a new
 /// draft from [AppController.newDraft].
@@ -280,6 +281,7 @@ class _EditorScreenState extends State<EditorScreen> {
         appBar: AppBar(
           title: Text(_isNew ? '${kind.label}を作成' : '${kind.label}を編集'),
           actions: [
+            const HelpButton(key: Key('help-editor'), text: HelpTexts.editor),
             TextButton(
               key: const Key('save-document'),
               onPressed: _saving ? null : _save,

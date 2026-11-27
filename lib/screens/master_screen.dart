@@ -8,6 +8,7 @@ import '../plan/limits.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/forms.dart';
+import '../widgets/help_button.dart';
 
 /// 取引先・品目 tab.
 class MasterScreen extends StatefulWidget {
@@ -126,7 +127,12 @@ class _MasterScreenState extends State<MasterScreen> {
         : PlanLimits.freeCustomerLimit;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('取引先・品目')),
+      appBar: AppBar(
+        title: const Text('取引先・品目'),
+        actions: const [
+          HelpButton(key: Key('help-master'), text: HelpTexts.master),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('add-master'),
         heroTag: null,

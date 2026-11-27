@@ -15,6 +15,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/invoice_merge.dart';
 import 'editor_screen.dart';
+import '../widgets/help_button.dart';
 
 /// One document: A4 PDF preview, share, status, edit, 見積→請求.
 class DocumentScreen extends StatefulWidget {
@@ -146,7 +147,12 @@ class _DocumentScreenState extends State<DocumentScreen> {
     final controller = AppScope.of(context);
     final candidates = controller.mergeCandidates(doc.id);
     if (candidates.isEmpty) return;
-    final picked = await pickInvoicesToMerge(context, controller, doc, candidates);
+    final picked = await pickInvoicesToMerge(
+      context,
+      controller,
+      doc,
+      candidates,
+    );
     if (picked == null || picked.isEmpty || !mounted) return;
     final numbers = [
       for (final d in candidates)
@@ -165,7 +171,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
       merged = await controller.mergeInvoices(doc.id, picked);
     });
     if (merged == null || !mounted) return;
-    showSnack(context, '${merged!.number} にまとめました（明細${merged!.lines.length}行）。');
+    showSnack(
+      context,
+      '${merged!.number} にまとめました（明細${merged!.lines.length}行）。',
+    );
   }
 
   void _open(String id) {
@@ -230,6 +239,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
           ],
         ),
         actions: [
+          const HelpButton(key: Key('help-document'), text: HelpTexts.document),
           IconButton(
             key: const Key('edit-document'),
             tooltip: '編集',
@@ -336,12 +346,11 @@ class _DocumentScreenState extends State<DocumentScreen> {
               key: const Key('combine-lines'),
               onPressed: () => _combine(doc, n),
               icon: const Icon(Icons.compress),
-              label: Text(
-                '同じ現場・品目の行を1行にまとめる（${doc.lines.length}行→$n行）',
-              ),
+              label: Text('同じ現場・品目の行を1行にまとめる（${doc.lines.length}行→$n行）'),
             ),
           ],
-          if (doc.isUnpaid && controller.mergeCandidates(doc.id).isNotEmpty) ...[
+          if (doc.isUnpaid &&
+              controller.mergeCandidates(doc.id).isNotEmpty) ...[
             const SizedBox(height: 10),
             OutlinedButton.icon(
               key: const Key('merge-invoices'),

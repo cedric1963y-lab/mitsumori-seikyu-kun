@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/seal_picker.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/help_button.dart';
 
 /// 自社情報: printed on every document, plus the 印影 / ロゴ (premium).
 class ProfileScreen extends StatefulWidget {
@@ -89,6 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('自社情報'),
         actions: [
+          const HelpButton(key: Key('help-profile'), text: HelpTexts.profile),
           TextButton(
             key: const Key('save-profile'),
             onPressed: _save,

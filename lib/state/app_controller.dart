@@ -45,6 +45,9 @@ class AppController extends ChangeNotifier {
 
   /// 明細の見出し (設定). [LineLabel.item] keeps the original wording.
   LineLabel lineLabel = LineLabel.item;
+
+  /// True once the first-launch guide was shown (or skipped).
+  bool guideSeen = false;
   List<Customer> customers = [];
   List<Item> items = [];
   List<Doc> documents = [];
@@ -117,6 +120,7 @@ class AppController extends ChangeNotifier {
     final settings = await repository.loadSettings();
     profile = BusinessProfile.fromJson(settings['profile']);
     lineLabel = LineLabel.fromKey(settings['lineLabel']);
+    guideSeen = settings['guideSeen'] == true;
     _counters = _intMap(settings['counters']);
     _created = _intMap(settings['created']);
     try {
@@ -153,7 +157,18 @@ class AppController extends ChangeNotifier {
       'counters': _counters,
       'created': _created,
       if (lineLabel != LineLabel.item) 'lineLabel': lineLabel.key,
+      if (guideSeen) 'guideSeen': true,
     });
+  }
+
+  Future<void> markGuideSeen() async {
+    if (guideSeen) return;
+    guideSeen = true;
+    try {
+      await _saveSettings();
+    } catch (_) {
+      // The guide is only a convenience; never block the app on it.
+    }
   }
 
   Future<void> setLineLabel(LineLabel label) async {
@@ -565,13 +580,14 @@ class AppController extends ChangeNotifier {
   List<Doc> mergeCandidates(String invoiceId) {
     final doc = documentById(invoiceId);
     if (doc == null || !doc.isInvoice) return const [];
-    final list = [
-      for (final d in documents)
-        if (d.id != doc.id && d.isUnpaid && _sameCustomer(d, doc)) d,
-    ]..sort((a, b) {
-        final c = a.issueDate.compareTo(b.issueDate);
-        return c != 0 ? c : a.number.compareTo(b.number);
-      });
+    final list =
+        [
+          for (final d in documents)
+            if (d.id != doc.id && d.isUnpaid && _sameCustomer(d, doc)) d,
+        ]..sort((a, b) {
+          final c = a.issueDate.compareTo(b.issueDate);
+          return c != 0 ? c : a.number.compareTo(b.number);
+        });
     return list;
   }
 
@@ -689,7 +705,8 @@ class AppController extends ChangeNotifier {
     if (others.isEmpty || otherIds.any((id) => !allowed.contains(id))) {
       throw const InvalidInput('まとめる請求書を選んでください。');
     }
-    final ordered = [keep, ...others]..sort((a, b) {
+    final ordered = [keep, ...others]
+      ..sort((a, b) {
         final c = a.issueDate.compareTo(b.issueDate);
         return c != 0 ? c : a.number.compareTo(b.number);
       });

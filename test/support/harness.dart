@@ -48,6 +48,7 @@ Future<AppController> openController(
     now: clock,
   );
   await controller.load();
+  controller.guideSeen = true; // the first-launch guide has its own test
   return controller;
 }
 

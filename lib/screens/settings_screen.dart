@@ -10,6 +10,8 @@ import '../services/share_service.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'profile_screen.dart';
+import '../widgets/help_button.dart';
+import 'guide_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -26,7 +28,12 @@ class SettingsScreen extends StatelessWidget {
     final profile = controller.profile;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
+      appBar: AppBar(
+        title: const Text('設定'),
+        actions: const [
+          HelpButton(key: Key('help-settings'), text: HelpTexts.settings),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
         children: [
@@ -144,6 +151,28 @@ class SettingsScreen extends StatelessWidget {
                     origin: origin,
                   );
                 }),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Panel(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              key: const Key('open-guide'),
+              leading: const Icon(
+                Icons.menu_book_outlined,
+                color: AppColors.orange,
+              ),
+              title: const Text(
+                '使い方ガイドをもう一度見る',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  fullscreenDialog: true,
+                  builder: (_) => const GuideScreen(),
+                ),
               ),
             ),
           ),

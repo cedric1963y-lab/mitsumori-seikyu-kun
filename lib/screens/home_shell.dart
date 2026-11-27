@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import 'document_screen.dart';
 import 'documents_screen.dart';
 import 'editor_screen.dart';
+import 'guide_screen.dart';
 import 'master_screen.dart';
 import 'premium_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/help_button.dart';
 import 'unpaid_screen.dart';
 
 /// Bottom tabs: 書類 / 未入金 / 登録 / 設定.
@@ -15,7 +19,8 @@ class HomeShell extends StatefulWidget {
 
   /// 0-3 picks a tab. Debug screenshot runs also use 10 (edit
   /// [startDocumentId]), 11 (プレミアム), 12 (preview [startDocumentId]) and
-  /// 13 (edit [startDocumentId] with its first line open).
+  /// 13 (edit [startDocumentId] with its first line open), 14-16 (guide page
+  /// 1-3) and 17 (書類の「？」).
   final int startTab;
   final String startDocumentId;
 
@@ -29,7 +34,10 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
-    if (widget.startTab < 10) return;
+    if (widget.startTab < 10) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showGuideOnce());
+      return;
+    }
     _index = 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -40,11 +48,34 @@ class _HomeShellState extends State<HomeShell> {
         12 when doc != null => DocumentScreen(documentId: doc.id),
         13 when doc != null => EditorScreen(initial: doc, openLine: 0),
         11 => const PremiumScreen(),
+        14 || 15 || 16 => GuideScreen(initialPage: widget.startTab - 14),
         _ => null,
       };
+      if (widget.startTab == 17) {
+        showHelp(
+          context,
+          title: HelpTexts.documents.title,
+          body: HelpTexts.documents.body,
+        );
+        return;
+      }
       if (page == null) return;
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     });
+  }
+
+  /// First launch only: the 3-page guide, skippable.
+  Future<void> _showGuideOnce() async {
+    if (!mounted) return;
+    final controller = AppScope.of(context);
+    if (controller.guideSeen) return;
+    unawaited(controller.markGuideSeen());
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => const GuideScreen(),
+      ),
+    );
   }
 
   @override

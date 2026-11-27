@@ -11,6 +11,7 @@ import '../widgets/common.dart';
 import '../widgets/doc_tile.dart';
 import 'editor_screen.dart';
 import 'profile_screen.dart';
+import '../widgets/help_button.dart';
 
 /// 書類 tab: every 見積書 and 請求書, newest first.
 class DocumentsScreen extends StatefulWidget {
@@ -93,7 +94,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final left = controller.freeDocumentsLeft;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('書類')),
+      appBar: AppBar(
+        title: const Text('書類'),
+        actions: const [
+          HelpButton(key: Key('help-documents'), text: HelpTexts.documents),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('new-document'),
         heroTag: null,

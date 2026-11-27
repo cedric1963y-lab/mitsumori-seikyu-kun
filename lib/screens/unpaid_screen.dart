@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/doc_tile.dart';
+import '../widgets/help_button.dart';
 
 /// 未入金 tab: unpaid invoices, earliest due date first.
 class UnpaidScreen extends StatelessWidget {
@@ -16,7 +17,12 @@ class UnpaidScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     final unpaid = controller.unpaidInvoices;
     return Scaffold(
-      appBar: AppBar(title: const Text('未入金')),
+      appBar: AppBar(
+        title: const Text('未入金'),
+        actions: const [
+          HelpButton(key: Key('help-unpaid'), text: HelpTexts.unpaid),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
         children: [
