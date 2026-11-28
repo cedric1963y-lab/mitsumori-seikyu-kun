@@ -14,7 +14,7 @@ void main() {
       multiLine: true,
     ).firstMatch(pubspec)!;
     expect(AppInfo.version, match.group(1));
-    expect(AppInfo.version, '1.0.7');
+    expect(AppInfo.version, '1.0.8');
   });
 
   test('fallback prices include the 1-week free trial', () {

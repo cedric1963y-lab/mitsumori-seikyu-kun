@@ -2,7 +2,7 @@ name: mitsumori_seikyu
 description: "一人親方・小規模事業者向け。見積書と請求書を現場で作ってPDFで送る。"
 publish_to: 'none'
 
-version: 1.0.7+11
+version: 1.0.8+12
 
 environment:
   sdk: ^3.13.4

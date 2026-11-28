@@ -161,7 +161,7 @@ void main() {
     expect(find.text('購入を復元'), findsOneWidget);
     await tester.scrollUntilVisible(find.textContaining('バージョン'), 200);
     expect(find.text('${AppInfo.name} ${AppInfo.version}'), findsOneWidget);
-    expect(find.textContaining('1.0.7'), findsOneWidget);
+    expect(find.textContaining('1.0.8'), findsOneWidget);
     controller.dispose();
   });
 }

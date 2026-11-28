@@ -12,6 +12,7 @@ import '../logic/csv.dart';
 import '../logic/totals.dart';
 import '../models/models.dart';
 import '../plan/entitlement.dart';
+import '../plan/trial_tip.dart';
 import '../plan/limits.dart';
 import '../services/pdf_document.dart';
 import '../services/purchase_gateway.dart';
@@ -121,6 +122,7 @@ class AppController extends ChangeNotifier {
     profile = BusinessProfile.fromJson(settings['profile']);
     lineLabel = LineLabel.fromKey(settings['lineLabel']);
     guideSeen = settings['guideSeen'] == true;
+    trialTipShown = settings['trialTipShown'] == true;
     _counters = _intMap(settings['counters']);
     _created = _intMap(settings['created']);
     try {
@@ -147,7 +149,11 @@ class AppController extends ChangeNotifier {
     final active = activeSubscription(found, _now());
     entitlement = active == null
         ? const Entitlement()
-        : Entitlement(productId: active.productId, expiresAt: active.expiresAt);
+        : Entitlement(
+            productId: active.productId,
+            expiresAt: active.expiresAt,
+            purchasedAt: active.purchasedAt,
+          );
     await repository.saveEntitlement(entitlement);
   }
 
@@ -158,6 +164,7 @@ class AppController extends ChangeNotifier {
       'created': _created,
       if (lineLabel != LineLabel.item) 'lineLabel': lineLabel.key,
       if (guideSeen) 'guideSeen': true,
+      if (trialTipShown) 'trialTipShown': true,
     });
   }
 
@@ -168,6 +175,25 @@ class AppController extends ChangeNotifier {
       await _saveSettings();
     } catch (_) {
       // The guide is only a convenience; never block the app on it.
+    }
+  }
+
+  /// The one-time tip for people in the free trial was already shown.
+  bool trialTipShown = false;
+
+  bool get shouldShowTrialTip => TrialTip.shouldShow(
+    entitlement: entitlement,
+    now: _now(),
+    alreadyShown: trialTipShown,
+  );
+
+  Future<void> markTrialTipShown() async {
+    if (trialTipShown) return;
+    trialTipShown = true;
+    try {
+      await _saveSettings();
+    } catch (_) {
+      // A missed save at worst shows the tip once more; never block the app.
     }
   }
 
@@ -901,7 +927,11 @@ class AppController extends ChangeNotifier {
           purchaseError = '有効な契約は見つかりませんでした。期限が切れている場合は、月額または年額を開始してください。';
           break;
         }
-        entitlement = Entitlement(productId: productId, expiresAt: expiresAt);
+        entitlement = Entitlement(
+          productId: productId,
+          expiresAt: expiresAt,
+          purchasedAt: _now(),
+        );
         purchasePhase = PurchasePhase.idle;
         purchaseError = null;
         try {

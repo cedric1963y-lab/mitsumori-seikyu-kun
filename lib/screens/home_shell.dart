@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import '../models/models.dart';
+import '../plan/trial_tip.dart';
 import 'document_screen.dart';
 import 'documents_screen.dart';
 import 'editor_screen.dart';
@@ -35,7 +37,7 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     if (widget.startTab < 10) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _showGuideOnce());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showGuideOrTip());
       return;
     }
     _index = 0;
@@ -65,15 +67,54 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   /// First launch only: the 3-page guide, skippable.
-  Future<void> _showGuideOnce() async {
+  /// After that, trial users may see one short tip — never both at once.
+  Future<void> _showGuideOrTip() async {
     if (!mounted) return;
     final controller = AppScope.of(context);
-    if (controller.guideSeen) return;
-    unawaited(controller.markGuideSeen());
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => const GuideScreen(),
+    if (!controller.guideSeen) {
+      unawaited(controller.markGuideSeen());
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => const GuideScreen(),
+        ),
+      );
+      return;
+    }
+    _maybeShowTrialTip();
+  }
+
+  /// Free-trial users get one short tip, once. A quiet snack bar, no push.
+  void _maybeShowTrialTip() {
+    if (!mounted) return;
+    final controller = AppScope.of(context);
+    if (!controller.shouldShowTrialTip) return;
+    unawaited(controller.markTrialTipShown());
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text(TrialTip.message),
+        duration: const Duration(seconds: 9),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: '見てみる',
+          onPressed: () {
+            final estimates = controller.documents
+                .where((d) => d.kind == DocKind.estimate)
+                .toList();
+            final doc = estimates.isNotEmpty
+                ? estimates.first
+                : (controller.documents.isNotEmpty
+                      ? controller.documents.first
+                      : null);
+            if (doc == null) return;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => DocumentScreen(documentId: doc.id),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -3,10 +3,13 @@ import 'limits.dart';
 /// Local cache of the App Store subscription. Customers, items and documents are stored
 /// separately and are not removed when this lapses.
 class Entitlement {
-  const Entitlement({this.productId, this.expiresAt});
+  const Entitlement({this.productId, this.expiresAt, this.purchasedAt});
 
   final String? productId;
   final DateTime? expiresAt;
+
+  /// Start of the current subscription period (null for old saved data).
+  final DateTime? purchasedAt;
 
   bool isActiveAt(DateTime now) {
     final expires = expiresAt;
@@ -21,6 +24,8 @@ class Entitlement {
       'version': 1,
       if (productId != null) 'productId': productId,
       if (expiresAt != null) 'expiresAt': expiresAt!.millisecondsSinceEpoch,
+      if (purchasedAt != null)
+        'purchasedAt': purchasedAt!.millisecondsSinceEpoch,
     };
   }
 
@@ -37,9 +42,13 @@ class Entitlement {
         expires = DateTime.fromMillisecondsSinceEpoch(parsed);
       }
     }
+    final rawStart = json['purchasedAt'];
     return Entitlement(
       productId: product is String ? product : null,
       expiresAt: expires,
+      purchasedAt: rawStart is int
+          ? DateTime.fromMillisecondsSinceEpoch(rawStart)
+          : null,
     );
   }
 }
